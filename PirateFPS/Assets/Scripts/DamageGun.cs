@@ -26,7 +26,7 @@ public class DamageGun : MonoBehaviour
         {
             if(hitInfo.collider.gameObject.TryGetComponent(out Entity entity))
             {
-               entity.health -= Damage; //reduce the health of the target by the damage amount
+               entity.Health -= Damage; //reduce the health of the target by the damage amount
             }
         }
     }   
