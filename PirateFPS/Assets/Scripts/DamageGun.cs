@@ -24,7 +24,7 @@ public class DamageGun : MonoBehaviour
         //we check if the ray hits something within the bullet range
         if (Physics.Raycast(gunRay, out RaycastHit hitInfo, BulletRange))
         {
-            if(hitInfo.collider.gameObject.TryGetComponent(out Health targetHealth))
+            if(hitInfo.collider.gameObject.TryGetComponent(out Entity entity))
             {
                entity.health -= Damage; //reduce the health of the target by the damage amount
             }
