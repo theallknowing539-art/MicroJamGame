@@ -14,19 +14,45 @@ public class FPSCharacterController : MonoBehaviour
     [SerializeField] private float verticalClamp = 85f;
 
     [Header("Crouching")]
+    [SerializeField] private bool crouchEnabled = true;         // toggle crouch on/off
     [SerializeField] private float standingHeight = 2f;
     [SerializeField] private float crouchingHeight = 1f;
     [SerializeField] private float crouchTransitionSpeed = 8f;
     [SerializeField] private Vector3 standingCameraPos = new Vector3(0, 0.8f, 0);
     [SerializeField] private Vector3 crouchingCameraPos = new Vector3(0, 0.3f, 0);
 
+    // ----------------------------------------------------------------
+    // JUMP SETTINGS
+    // ----------------------------------------------------------------
+    [Header("Jumping")]
+    [SerializeField] private bool jumpEnabled = true;           // toggle jump on/off
+
+    [Tooltip("Max number of jumps before landing. 1 = normal, 2 = double-jump (Ultrakill style), etc.")]
+    [SerializeField] private int maxJumps = 2;
+
+    [Tooltip("Height of the FIRST jump (ground jump), in Unity units.")]
+    [SerializeField] private float firstJumpHeight = 1.5f;
+
+    [Tooltip("Height of subsequent air jumps. Can be higher than firstJumpHeight for momentum builds.")]
+    [SerializeField] private float airJumpHeight = 2.5f;
+
+    [Tooltip("Multiply jump height by this per each additional air jump (>1 = escalating, <1 = diminishing).")]
+    [SerializeField] private float airJumpHeightMultiplier = 1f;
+
+    [Tooltip("Extra horizontal speed burst applied when jumping in the air (feels like Ultrakill momentum).")]
+    [SerializeField] private float airJumpSpeedBoost = 0f;
+
+    [Tooltip("How strongly gravity pulls down during a jump. Increase for snappier arcs.")]
+    [SerializeField] private float fallMultiplier = 2.5f;
+
+    [Tooltip("Lower gravity while holding jump for floatier ascent (0 = no effect).")]
+    [SerializeField] private float lowJumpMultiplier = 2f;
+
     [Header("References")]
     [SerializeField] private Transform cameraHolder;
 
     // ----------------------------------------------------------------
-    // Headbob profile — one of these exists per movement state
-    // You can create as many as you want and swap them in from
-    // other scripts for your game mechanic
+    // Headbob Profiles
     // ----------------------------------------------------------------
     [System.Serializable]
     public class HeadbobProfile
@@ -34,16 +60,16 @@ public class FPSCharacterController : MonoBehaviour
         public string profileName = "Default";
 
         [Header("Vertical Bob")]
-        public float verticalAmplitude = 0.05f;     // how far up/down
-        public float verticalFrequency = 8f;         // how fast up/down
+        public float verticalAmplitude = 0.05f;
+        public float verticalFrequency = 8f;
 
         [Header("Tilt")]
-        public float tiltAmplitude = 1.5f;           // degrees of z tilt
-        public float tiltFrequency = 8f;             // how fast the tilt oscillates
+        public float tiltAmplitude = 1.5f;
+        public float tiltFrequency = 8f;
 
         [Header("Smoothing")]
-        public float bobSmoothSpeed = 10f;           // how snappy the bob is
-        public float returnSpeed = 6f;               // how fast it resets when standing still
+        public float bobSmoothSpeed = 10f;
+        public float returnSpeed = 6f;
     }
 
     [Header("Headbob Profiles")]
@@ -51,34 +77,38 @@ public class FPSCharacterController : MonoBehaviour
     [SerializeField] private HeadbobProfile sprintProfile;
     [SerializeField] private HeadbobProfile crouchProfile;
 
-    // current active profile — can be set from outside for game mechanics
     private HeadbobProfile _activeProfile;
 
     // headbob state
-    private float _bobTimer = 0f;
+    private float   _bobTimer        = 0f;
     private Vector3 _currentBobOffset = Vector3.zero;
-    private float _currentTilt = 0f;
-    private Vector3 _bobVelocity = Vector3.zero;
+    private float   _currentTilt     = 0f;
+    private Vector3 _bobVelocity     = Vector3.zero;
 
-    // --- private ---
+    // --- private core ---
     private CharacterController _cc;
     private Vector3 _velocity;
 
     // mouse look
-    private float _pitch;
-    private float _yaw;
+    private float   _pitch;
+    private float   _yaw;
     private Vector2 _mouseDelta;
     private Vector2 _smoothMouseDelta;
     private Vector2 _mouseDeltaVelocity;
 
     // crouching
-    private bool _isCrouching = false;
-    private float _targetHeight;
+    private bool    _isCrouching     = false;
+    private float   _targetHeight;
     private Vector3 _targetCameraPos;
 
     // movement state
-    private bool _isMoving = false;
+    private bool _isMoving    = false;
     private bool _isSprinting = false;
+
+    // jump state
+    private int  _jumpsUsed     = 0;        // how many jumps we've consumed this airtime
+    private bool _wasGrounded   = false;    // for landing detection
+    private bool _jumpPressed   = false;    // buffered jump input
 
     // ----------------------------------------------------------------
     private void Awake()
@@ -97,7 +127,6 @@ public class FPSCharacterController : MonoBehaviour
         _cc.height       = standingHeight;
         _cc.center       = new Vector3(0, standingHeight / 2f, 0);
 
-        // default active profile
         _activeProfile = walkProfile;
     }
 
@@ -142,26 +171,113 @@ public class FPSCharacterController : MonoBehaviour
         Vector3 moveDir = transform.right * h + transform.forward * v;
         if (moveDir.magnitude > 1f) moveDir.Normalize();
 
-        _isMoving   = moveDir.magnitude > 0f && _cc.isGrounded;
+        bool isGrounded = _cc.isGrounded;
+
+        // ---- grounded housekeeping ----
+        if (isGrounded)
+        {
+            if (_velocity.y < 0f)
+                _velocity.y = -2f;
+
+            // reset jump counter when we land
+            if (!_wasGrounded)
+                _jumpsUsed = 0;
+        }
+        _wasGrounded = isGrounded;
+
+        // ---- jump input (buffer one frame so it doesn't get eaten) ----
+        if (Input.GetButtonDown("Jump"))
+            _jumpPressed = true;
+
+        // ---- jump execution ----
+        if (jumpEnabled && _jumpPressed)
+        {
+            _jumpPressed = false;
+
+            bool canJumpFromGround  = isGrounded && _jumpsUsed == 0;
+            bool canAirJump         = !isGrounded && _jumpsUsed < maxJumps;
+
+            if (canJumpFromGround)
+            {
+                // standard ground jump — derive velocity from desired height
+                // v = sqrt(2 * |g| * h)
+                _velocity.y  = JumpVelocityForHeight(firstJumpHeight);
+                _jumpsUsed   = 1;
+            }
+            else if (canAirJump)
+            {
+                // each successive air jump can scale up
+                float thisAirHeight = airJumpHeight
+                    * Mathf.Pow(airJumpHeightMultiplier, _jumpsUsed - 1);
+
+                // override vertical velocity so every air jump feels powerful
+                _velocity.y  = JumpVelocityForHeight(thisAirHeight);
+                _jumpsUsed  += 1;
+
+                // optional horizontal boost (Ultrakill-style momentum)
+                if (airJumpSpeedBoost > 0f && moveDir.magnitude > 0f)
+                {
+                    Vector3 boost = moveDir * airJumpSpeedBoost;
+                    _cc.Move(boost * Time.deltaTime);
+                }
+            }
+        }
+        else
+        {
+            _jumpPressed = false;
+        }
+
+        // ---- better-feeling gravity (fast-fall + low-jump hold) ----
+        if (!isGrounded)
+        {
+            if (_velocity.y < 0f)
+            {
+                // falling — multiply gravity for snappier arcs
+                _velocity.y += gravity * (fallMultiplier - 1f) * Time.deltaTime;
+            }
+            else if (_velocity.y > 0f && !Input.GetButton("Jump"))
+            {
+                // rising but not holding jump — cut the arc short
+                _velocity.y += gravity * (lowJumpMultiplier - 1f) * Time.deltaTime;
+            }
+        }
+
+        // ---- standard gravity ----
+        _velocity.y += gravity * Time.deltaTime;
+
+        // ---- speed / sprint ----
+        _isMoving    = moveDir.magnitude > 0f && isGrounded;
         _isSprinting = !_isCrouching && (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift));
         float currentSpeed = _isSprinting ? sprintSpeed : walkSpeed;
-
-        if (_cc.isGrounded && _velocity.y < 0f)
-            _velocity.y = -2f;
-
-        _velocity.y += gravity * Time.deltaTime;
 
         _cc.Move((moveDir * currentSpeed + new Vector3(0f, _velocity.y, 0f)) * Time.deltaTime);
     }
 
     // ----------------------------------------------------------------
+    // Converts a desired jump height to the required initial velocity.
+    // Formula: v = sqrt(2 * |gravity| * height)
+    // ----------------------------------------------------------------
+    private float JumpVelocityForHeight(float height)
+    {
+        return Mathf.Sqrt(2f * Mathf.Abs(gravity) * height);
+    }
+
+    // ----------------------------------------------------------------
     private void HandleCrouch()
     {
-        if (Input.GetKeyDown(KeyCode.LeftControl))
+        if (crouchEnabled && Input.GetKeyDown(KeyCode.LeftControl))
         {
             _isCrouching     = !_isCrouching;
             _targetHeight    = _isCrouching ? crouchingHeight    : standingHeight;
             _targetCameraPos = _isCrouching ? crouchingCameraPos : standingCameraPos;
+        }
+
+        // if crouch was disabled mid-crouch, stand back up
+        if (!crouchEnabled && _isCrouching)
+        {
+            _isCrouching     = false;
+            _targetHeight    = standingHeight;
+            _targetCameraPos = standingCameraPos;
         }
 
         _cc.height = Mathf.Lerp(_cc.height, _targetHeight, Time.deltaTime * crouchTransitionSpeed);
@@ -180,48 +296,36 @@ public class FPSCharacterController : MonoBehaviour
     // ----------------------------------------------------------------
     private void HandleHeadbob()
     {
-        // pick the right profile based on movement state
-        if (_isCrouching)       _activeProfile = crouchProfile;
-        else if (_isSprinting)  _activeProfile = sprintProfile;
-        else                    _activeProfile = walkProfile;
+        if (_isCrouching)      _activeProfile = crouchProfile;
+        else if (_isSprinting) _activeProfile = sprintProfile;
+        else                   _activeProfile = walkProfile;
 
         if (_isMoving)
         {
-            // advance the bob timer — drives the sine wave
             _bobTimer += Time.deltaTime * _activeProfile.verticalFrequency;
 
-            // vertical bob — sine wave on Y
-            float targetBobY = Mathf.Sin(_bobTimer) * _activeProfile.verticalAmplitude;
-
-            // tilt — cosine so it's offset from the vertical, feels natural
+            float targetBobY = Mathf.Sin(_bobTimer)       * _activeProfile.verticalAmplitude;
             float targetTilt = Mathf.Cos(_bobTimer * 0.5f) * _activeProfile.tiltAmplitude;
 
-            // smooth towards target
             Vector3 targetOffset = new Vector3(0f, targetBobY, 0f);
             _currentBobOffset = Vector3.SmoothDamp(
-                _currentBobOffset,
-                targetOffset,
-                ref _bobVelocity,
+                _currentBobOffset, targetOffset, ref _bobVelocity,
                 1f / _activeProfile.bobSmoothSpeed
             );
-            _currentTilt = Mathf.Lerp(_currentTilt, targetTilt, Time.deltaTime * _activeProfile.bobSmoothSpeed);
+            _currentTilt = Mathf.Lerp(_currentTilt, targetTilt,
+                Time.deltaTime * _activeProfile.bobSmoothSpeed);
         }
         else
         {
-            // smoothly return to neutral when not moving
             _currentBobOffset = Vector3.SmoothDamp(
-                _currentBobOffset,
-                Vector3.zero,
-                ref _bobVelocity,
+                _currentBobOffset, Vector3.zero, ref _bobVelocity,
                 1f / _activeProfile.returnSpeed
             );
-            _currentTilt = Mathf.Lerp(_currentTilt, 0f, Time.deltaTime * _activeProfile.returnSpeed);
-
-            // reset timer so bob always starts from the same point
+            _currentTilt = Mathf.Lerp(_currentTilt, 0f,
+                Time.deltaTime * _activeProfile.returnSpeed);
             _bobTimer = 0f;
         }
 
-        // apply bob offset and tilt on top of whatever the camera holder is already doing
         if (cameraHolder != null)
         {
             cameraHolder.localPosition += _currentBobOffset;
@@ -230,17 +334,31 @@ public class FPSCharacterController : MonoBehaviour
     }
 
     // ----------------------------------------------------------------
-    // Call this from any other script to override the active bob profile
-    // This is your hook for the game mechanic
-    public void SetHeadbobProfile(HeadbobProfile profile)
-    {
-        _activeProfile = profile;
-    }
-
+    // Public API
     // ----------------------------------------------------------------
+
+    /// <summary>Override the active headbob profile from another script.</summary>
+    public void SetHeadbobProfile(HeadbobProfile profile)  => _activeProfile = profile;
+
+    /// <summary>Lock or unlock the cursor.</summary>
     public void SetCursorLock(bool locked)
     {
         Cursor.lockState = locked ? CursorLockMode.Locked : CursorLockMode.None;
         Cursor.visible   = !locked;
     }
+
+    /// <summary>Enable or disable jumping at runtime (e.g. cinematic cutscenes).</summary>
+    public void SetJumpEnabled(bool enabled)   => jumpEnabled   = enabled;
+
+    /// <summary>Enable or disable crouching at runtime.</summary>
+    public void SetCrouchEnabled(bool enabled) => crouchEnabled = enabled;
+
+    /// <summary>Change max jumps at runtime (drunk powerup, bouncy deck, etc.).</summary>
+    public void SetMaxJumps(int count)         => maxJumps = Mathf.Max(1, count);
+
+    /// <summary>Change first jump height at runtime.</summary>
+    public void SetFirstJumpHeight(float h)    => firstJumpHeight = Mathf.Max(0.1f, h);
+
+    /// <summary>Change air jump height at runtime.</summary>
+    public void SetAirJumpHeight(float h)      => airJumpHeight = Mathf.Max(0.1f, h);
 }

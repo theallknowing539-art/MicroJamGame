@@ -324,11 +324,20 @@ MonoBehaviour:
   mouseSensitivity: 2
   smoothTime: 0.05
   verticalClamp: 85
+  crouchEnabled: 1
   standingHeight: 2
   crouchingHeight: 1
   crouchTransitionSpeed: 8
   standingCameraPos: {x: 0, y: 0.38, z: 0}
   crouchingCameraPos: {x: 0, y: 0.1, z: 0}
+  jumpEnabled: 1
+  maxJumps: 2
+  firstJumpHeight: 1.5
+  airJumpHeight: 2.5
+  airJumpHeightMultiplier: 1
+  airJumpSpeedBoost: 0
+  fallMultiplier: 2.5
+  lowJumpMultiplier: 2
   cameraHolder: {fileID: 788713480}
   walkProfile:
     profileName: Default
@@ -340,19 +349,19 @@ MonoBehaviour:
     returnSpeed: 6
   sprintProfile:
     profileName: Default
-    verticalAmplitude: 0.05
-    verticalFrequency: 8
+    verticalAmplitude: 0.005
+    verticalFrequency: 10
     tiltAmplitude: 1.5
     tiltFrequency: 8
     bobSmoothSpeed: 10
     returnSpeed: 6
   crouchProfile:
     profileName: Default
-    verticalAmplitude: 0.05
-    verticalFrequency: 8
+    verticalAmplitude: 0.002
+    verticalFrequency: 4
     tiltAmplitude: 1.5
     tiltFrequency: 8
-    bobSmoothSpeed: 10
+    bobSmoothSpeed: 8.61
     returnSpeed: 6
 --- !u!143 &795916260
 CharacterController:
