@@ -15,7 +15,7 @@ public class PlayerHealth : MonoBehaviour
 
     // UI and other systems subscribe to this
     public event Action<float, float> OnHealthChanged;  // (current, max)
-    public event Action OnDied;
+    public event Action OnDied; 
 
     public float CurrentHealth => currentHealth;
     public float MaxHealth => maxHealth;
