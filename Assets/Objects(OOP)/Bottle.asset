@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 40fdfc56c7fc4864fac1641943f8a59b, type: 3}
   m_Name: Bottle
   m_EditorClassIdentifier: 
-  itemName: Item
+  itemName: Bottle
   icon: {fileID: 0}
   healAmount: 25
   instabilityIncrease: 20
