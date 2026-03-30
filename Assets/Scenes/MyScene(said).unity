@@ -475,7 +475,6 @@ GameObject:
   - component: {fileID: 1226758127}
   - component: {fileID: 1226758133}
   - component: {fileID: 1226758132}
-  - component: {fileID: 1226758131}
   - component: {fileID: 1226758130}
   m_Layer: 0
   m_Name: Player
@@ -604,20 +603,6 @@ Transform:
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &1226758130
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1226758126}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 879850b175e45e147b085a00942381e7, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  rumBottleData: {fileID: 0}
-  useItemKey: 113
---- !u!114 &1226758131
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -1086,7 +1071,7 @@ MonoBehaviour:
     idleFrequency: 1.2
     walkAmplitude: 0.09
     walkFrequency: 8
-    sprintAmplitude: 0.5
+    sprintAmplitude: 0.2
     sprintFrequency: 14
     crouchAmplitude: 0.006
     crouchFrequency: 5
