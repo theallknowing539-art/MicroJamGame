@@ -36,8 +36,21 @@ public class FPSCharacterController : MonoBehaviour
     [SerializeField] private float fallMultiplier = 2.5f;
     [SerializeField] private float lowJumpMultiplier = 2f;
 
+    [Header("Sliding")]
+    [SerializeField] private float slideDuration = 0.8f;
+    [SerializeField] private float slideSpeedMultiplier = 1.8f;     // how much faster than sprint
+    [SerializeField] private float slideCooldown = 1f;              // prevent spam
+    [SerializeField] private Vector3 slidingCameraPos = new Vector3(0, 0.1f, 0);
+
+    [Header("Ground Slam")]
+    [SerializeField] private float groundSlamForce = 30f;           // downward velocity applied
+    [SerializeField] private float groundSlamRadius = 3f;           // radius for enemy knockback
+    [SerializeField] private float groundSlamDamage = 30f;          // damage dealt to nearby enemies
+    [SerializeField] private LayerMask enemyLayer;
+
     [Header("References")]
     [SerializeField] private Transform cameraHolder;
+    [SerializeField] private WeaponSway weaponSway;
 
     // ----------------------------------------------------------------
     // Headbob Profiles
@@ -64,6 +77,7 @@ public class FPSCharacterController : MonoBehaviour
     [SerializeField] private HeadbobProfile walkProfile;
     [SerializeField] private HeadbobProfile sprintProfile;
     [SerializeField] private HeadbobProfile crouchProfile;
+    [SerializeField] private HeadbobProfile slideProfile;
 
     private HeadbobProfile _activeProfile;
 
@@ -85,19 +99,29 @@ public class FPSCharacterController : MonoBehaviour
     private Vector2 _mouseDeltaVelocity;
 
     // crouching
-    private bool    _isCrouching     = false;
+    private bool    _isCrouching      = false;
     private float   _targetHeight;
     private Vector3 _targetCameraPos;
 
     // movement state
-    private bool _isMoving      = false;
-    private bool _isSprinting   = false;
-    private bool _movementLocked = false;
+    private bool    _isMoving         = false;
+    private bool    _isSprinting      = false;
+    private bool    _movementLocked   = false;
 
     // jump state
-    private int  _jumpsUsed   = 0;
-    private bool _wasGrounded = false;
-    private bool _jumpPressed = false;
+    private int     _jumpsUsed        = 0;
+    private bool    _wasGrounded      = false;
+    private bool    _jumpPressed      = false;
+
+    // slide state
+    private bool    _isSliding        = false;
+    private float   _slideTimer       = 0f;
+    private float   _slideCooldownTimer = 0f;
+    private Vector3 _slideDirection   = Vector3.zero;
+
+    // ground slam state
+    private bool    _isSlamming       = false;
+    private bool    _wasAirborne      = false;
 
     // ----------------------------------------------------------------
     private void Awake()
@@ -129,13 +153,15 @@ public class FPSCharacterController : MonoBehaviour
         HandleMovement();
         HandleCrouch();
         HandleHeadbob();
+
+        // pass movement state to weapon sway every frame
+        if (weaponSway != null)
+            weaponSway.SetMovementState(_isMoving, _isSprinting, _isCrouching);
     }
 
     // ----------------------------------------------------------------
     private void HandleMouseLook()
     {
-        // mouse look still works during hangover so the player
-        // can look around and feel the disorientation
         _mouseDelta.x = Input.GetAxisRaw("Mouse X");
         _mouseDelta.y = Input.GetAxisRaw("Mouse Y");
 
@@ -159,7 +185,6 @@ public class FPSCharacterController : MonoBehaviour
     // ----------------------------------------------------------------
     private void HandleMovement()
     {
-        // movement is locked during hangover stagger
         if (_movementLocked) return;
 
         float h = Input.GetAxisRaw("Horizontal");
@@ -170,20 +195,59 @@ public class FPSCharacterController : MonoBehaviour
 
         bool isGrounded = _cc.isGrounded;
 
+        // ---- grounded housekeeping ----
         if (isGrounded)
         {
             if (_velocity.y < 0f)
                 _velocity.y = -2f;
 
             if (!_wasGrounded)
+            {
                 _jumpsUsed = 0;
+
+                // just landed — check if we were slamming
+                if (_isSlamming)
+                    ExecuteGroundSlam();
+            }
         }
+
+        // track airborne state for slam landing
+        _wasAirborne = !isGrounded;
         _wasGrounded = isGrounded;
 
-        if (Input.GetButtonDown("Jump"))
-            _jumpPressed = true;
+        // ---- slide cooldown tick ----
+        if (_slideCooldownTimer > 0f)
+            _slideCooldownTimer -= Time.deltaTime;
 
-        if (jumpEnabled && _jumpPressed)
+        // ---- slide trigger ----
+        // sprint + crouch while grounded and moving and not already sliding
+        bool wantToSlide = Input.GetKeyDown(KeyCode.LeftControl)
+                        && _isSprinting
+                        && isGrounded
+                        && moveDir.magnitude > 0f
+                        && !_isSliding
+                        && _slideCooldownTimer <= 0f;
+
+        if (wantToSlide)
+            StartSlide(moveDir);
+
+        // ---- ground slam trigger ----
+        // crouch key while airborne and not already slamming
+        if (Input.GetKeyDown(KeyCode.LeftControl) && !isGrounded && !_isSlamming)
+            StartGroundSlam();
+
+        // ---- jump input ----
+        if (Input.GetButtonDown("Jump"))
+        {
+            // cancel slide on jump
+            if (_isSliding)
+                EndSlide();
+            else
+                _jumpPressed = true;
+        }
+
+        // ---- jump execution ----
+        if (jumpEnabled && _jumpPressed && !_isSliding)
         {
             _jumpPressed = false;
 
@@ -212,21 +276,93 @@ public class FPSCharacterController : MonoBehaviour
             _jumpPressed = false;
         }
 
+        // ---- gravity ----
         if (!isGrounded)
         {
+            // during ground slam fall much faster
+            float gravMultiplier = _isSlamming ? groundSlamForce / Mathf.Abs(gravity) : 1f;
+
             if (_velocity.y < 0f)
-                _velocity.y += gravity * (fallMultiplier - 1f) * Time.deltaTime;
+                _velocity.y += gravity * (fallMultiplier - 1f) * gravMultiplier * Time.deltaTime;
             else if (_velocity.y > 0f && !Input.GetButton("Jump"))
                 _velocity.y += gravity * (lowJumpMultiplier - 1f) * Time.deltaTime;
         }
 
         _velocity.y += gravity * Time.deltaTime;
 
-        _isMoving    = moveDir.magnitude > 0f && isGrounded;
-        _isSprinting = !_isCrouching && (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift));
-        float currentSpeed = _isSprinting ? sprintSpeed : walkSpeed;
+        // ---- movement application ----
+        _isSprinting = !_isCrouching && !_isSliding
+                    && (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift));
 
-        _cc.Move((moveDir * currentSpeed + new Vector3(0f, _velocity.y, 0f)) * Time.deltaTime);
+        Vector3 horizontalMove;
+
+        if (_isSliding)
+        {
+            // during slide ignore input — commit to slide direction
+            _slideTimer -= Time.deltaTime;
+            float slideSpeed = sprintSpeed * slideSpeedMultiplier;
+            horizontalMove = _slideDirection * slideSpeed;
+
+            if (_slideTimer <= 0f)
+                EndSlide();
+        }
+        else
+        {
+            float currentSpeed = _isSprinting ? sprintSpeed : walkSpeed;
+            horizontalMove = moveDir * currentSpeed;
+        }
+
+        _isMoving = moveDir.magnitude > 0f && isGrounded && !_isSliding;
+
+        _cc.Move((horizontalMove + new Vector3(0f, _velocity.y, 0f)) * Time.deltaTime);
+    }
+
+    // ----------------------------------------------------------------
+    private void StartSlide(Vector3 direction)
+    {
+        _isSliding       = true;
+        _slideTimer      = slideDuration;
+        _slideDirection  = direction;
+
+        // crouch the collider down for the slide
+        _isCrouching     = true;
+        _targetHeight    = crouchingHeight;
+        _targetCameraPos = slidingCameraPos;   // even lower than crouch
+    }
+
+    // ----------------------------------------------------------------
+    private void EndSlide()
+    {
+        _isSliding            = false;
+        _slideCooldownTimer   = slideCooldown;
+        _isCrouching          = false;
+        _targetHeight         = standingHeight;
+        _targetCameraPos      = standingCameraPos;
+    }
+
+    // ----------------------------------------------------------------
+    private void StartGroundSlam()
+    {
+        _isSlamming = true;
+        // slam the velocity downward hard
+        _velocity.y = -groundSlamForce;
+    }
+
+    // ----------------------------------------------------------------
+    private void ExecuteGroundSlam()
+    {
+        _isSlamming = false;
+
+        // find all enemies in radius and damage them
+        Collider[] hits = Physics.OverlapSphere(transform.position, groundSlamRadius, enemyLayer);
+        foreach (Collider hit in hits)
+        {
+            Enemy enemy = hit.GetComponent<Enemy>();
+            if (enemy != null)
+                enemy.TakeDamage(groundSlamDamage);
+        }
+
+        Debug.Log($"[GroundSlam] Hit {hits.Length} enemies in radius {groundSlamRadius}.");
     }
 
     // ----------------------------------------------------------------
@@ -238,7 +374,10 @@ public class FPSCharacterController : MonoBehaviour
     // ----------------------------------------------------------------
     private void HandleCrouch()
     {
-        if (crouchEnabled && Input.GetKeyDown(KeyCode.LeftControl))
+        // crouching is handled by slide state when sliding
+        if (_isSliding) goto ApplyHeight;
+
+        if (crouchEnabled && Input.GetKeyDown(KeyCode.LeftControl) && _cc.isGrounded && !_isSprinting)
         {
             _isCrouching     = !_isCrouching;
             _targetHeight    = _isCrouching ? crouchingHeight    : standingHeight;
@@ -252,6 +391,7 @@ public class FPSCharacterController : MonoBehaviour
             _targetCameraPos = standingCameraPos;
         }
 
+        ApplyHeight:
         _cc.height = Mathf.Lerp(_cc.height, _targetHeight, Time.deltaTime * crouchTransitionSpeed);
         _cc.center = new Vector3(0, _cc.height / 2f, 0);
 
@@ -268,11 +408,12 @@ public class FPSCharacterController : MonoBehaviour
     // ----------------------------------------------------------------
     private void HandleHeadbob()
     {
-        if (_isCrouching)      _activeProfile = crouchProfile;
+        if (_isSliding)        _activeProfile = slideProfile;
+        else if (_isCrouching) _activeProfile = crouchProfile;
         else if (_isSprinting) _activeProfile = sprintProfile;
         else                   _activeProfile = walkProfile;
 
-        if (_isMoving)
+        if (_isMoving || _isSliding)
         {
             _bobTimer += Time.deltaTime * _activeProfile.verticalFrequency;
 
@@ -308,16 +449,16 @@ public class FPSCharacterController : MonoBehaviour
     // ----------------------------------------------------------------
     // Public API
     // ----------------------------------------------------------------
-    public void SetMovementLocked(bool locked)   => _movementLocked  = locked;
-    public void SetHeadbobProfile(HeadbobProfile profile) => _activeProfile = profile;
+    public void SetMovementLocked(bool locked)            => _movementLocked = locked;
+    public void SetHeadbobProfile(HeadbobProfile profile) => _activeProfile  = profile;
     public void SetCursorLock(bool locked)
     {
         Cursor.lockState = locked ? CursorLockMode.Locked : CursorLockMode.None;
         Cursor.visible   = !locked;
     }
-    public void SetJumpEnabled(bool enabled)     => jumpEnabled      = enabled;
-    public void SetCrouchEnabled(bool enabled)   => crouchEnabled    = enabled;
-    public void SetMaxJumps(int count)           => maxJumps         = Mathf.Max(1, count);
-    public void SetFirstJumpHeight(float h)      => firstJumpHeight  = Mathf.Max(0.1f, h);
-    public void SetAirJumpHeight(float h)        => airJumpHeight    = Mathf.Max(0.1f, h);
+    public void SetJumpEnabled(bool enabled)    => jumpEnabled     = enabled;
+    public void SetCrouchEnabled(bool enabled)  => crouchEnabled   = enabled;
+    public void SetMaxJumps(int count)          => maxJumps        = Mathf.Max(1, count);
+    public void SetFirstJumpHeight(float h)     => firstJumpHeight = Mathf.Max(0.1f, h);
+    public void SetAirJumpHeight(float h)       => airJumpHeight   = Mathf.Max(0.1f, h);
 }
