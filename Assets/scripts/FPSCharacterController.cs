@@ -350,20 +350,24 @@ public class FPSCharacterController : MonoBehaviour
 
     // ----------------------------------------------------------------
     private void ExecuteGroundSlam()
+{
+    _isSlamming = false;
+
+    Collider[] hits = Physics.OverlapSphere(transform.position, groundSlamRadius, enemyLayer);
+    foreach (Collider hit in hits)
     {
-        _isSlamming = false;
-
-        // find all enemies in radius and damage them
-        Collider[] hits = Physics.OverlapSphere(transform.position, groundSlamRadius, enemyLayer);
-        foreach (Collider hit in hits)
+        Enemy enemy = hit.GetComponent<Enemy>();
+        if (enemy != null)
         {
-            Enemy enemy = hit.GetComponent<Enemy>();
-            if (enemy != null)
-                enemy.TakeDamage(groundSlamDamage);
-        }
+            enemy.TakeDamage(groundSlamDamage);
 
-        Debug.Log($"[GroundSlam] Hit {hits.Length} enemies in radius {groundSlamRadius}.");
+            Vector3 knockbackDir = (hit.transform.position - transform.position).normalized;
+            enemy.ApplyKnockback(knockbackDir * groundSlamForce);
+        }
     }
+
+    Debug.Log($"[GroundSlam] Hit {hits.Length} enemies.");
+}
 
     // ----------------------------------------------------------------
     private float JumpVelocityForHeight(float height)
