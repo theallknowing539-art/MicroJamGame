@@ -14,7 +14,7 @@ public class Enemy : MonoBehaviour
     // ----------------------------------------------------------------
     [Header("Health")]
     [SerializeField] private float maxHealth = 100f;
-    private float _currentHealth;
+    [SerializeField]private float _currentHealth;
 
     [Header("Movement")]
     [SerializeField] private float moveSpeed = 3.5f;
@@ -73,30 +73,29 @@ public class Enemy : MonoBehaviour
     }
 
     // ----------------------------------------------------------------
-    private void Update()
+private void Update()
+{
+    if (_isDead || _isKnockedBack || _player == null) return;
+
+    float distanceToPlayer = Vector3.Distance(transform.position, _player.position);
+    _attackTimer -= Time.deltaTime;
+
+    Debug.Log($"Distance: {distanceToPlayer} | AttackRange: {attackRange} | Velocity: {_agent.velocity}");
+
+    if (distanceToPlayer <= attackRange)
     {
-        // do nothing if dead, knocked back, or player not found
-        if (_isDead || _isKnockedBack || _player == null) return;
+        _agent.SetDestination(transform.position);
+        animator.SetBool(AnimIsWalking, false);
 
-        float distanceToPlayer = Vector3.Distance(transform.position, _player.position);
-        _attackTimer -= Time.deltaTime;
-
-        if (distanceToPlayer <= attackRange)
-        {
-            // stop and attack
-            _agent.SetDestination(transform.position);
-            animator.SetBool(AnimIsWalking, false);
-
-            if (!_isAttacking && _attackTimer <= 0f)
-                StartCoroutine(AttackRoutine());
-        }
-        else
-        {
-            // chase
-            _agent.SetDestination(_player.position);
-            animator.SetBool(AnimIsWalking, true);
-        }
+        if (!_isAttacking && _attackTimer <= 0f)
+            StartCoroutine(AttackRoutine());
     }
+    else
+    {
+        _agent.SetDestination(_player.position);
+        animator.SetBool(AnimIsWalking, true);
+    }
+}
 
     // ----------------------------------------------------------------
     private IEnumerator AttackRoutine()
