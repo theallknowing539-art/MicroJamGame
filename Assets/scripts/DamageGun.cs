@@ -1,33 +1,37 @@
+// ================================================================
+// DamageGun.cs — updated
+// ================================================================
 using UnityEngine;
 
 public class DamageGun : MonoBehaviour
 {
-    //how much damage the gun does 
     public float Damage;
-
-    //how far the bullet can go 
     public float BulletRange;
 
-    //reference to the player camera to know where we are shooting from
+    [Header("Weapon Sway")]
+    [SerializeField] private WeaponSway weaponSway;  // drag WeaponHolder here
+
     private Transform PlayerCamera;
 
     void Start()
     {
-        PlayerCamera = Camera.main.transform; //get the main camera transform
+        PlayerCamera = Camera.main.transform;
     }
 
     public void Shoot()
     {
-        //this create a ray from the camera position in the forward direction
         Ray gunRay = new Ray(PlayerCamera.position, PlayerCamera.forward);
-        
-        //we check if the ray hits something within the bullet range
+
         if (Physics.Raycast(gunRay, out RaycastHit hitInfo, BulletRange))
         {
-            if(hitInfo.collider.gameObject.TryGetComponent(out Entity entity))
-            {
-               entity.Health -= Damage; //reduce the health of the target by the damage amount
-            }
+            // works with your Enemy.cs TakeDamage method
+            Enemy enemy = hitInfo.collider.GetComponent<Enemy>();
+            if (enemy != null)
+                enemy.TakeDamage(Damage);
         }
-    }   
+
+        // trigger recoil on the weapon sway system
+        if (weaponSway != null)
+            weaponSway.ApplyRecoil();
+    }
 }
