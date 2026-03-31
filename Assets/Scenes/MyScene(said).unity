@@ -1306,18 +1306,6 @@ PrefabInstance:
       propertyPath: m_Name
       value: Idle(1)
       objectReference: {fileID: 0}
-    - target: {fileID: 7293635194623528990, guid: c2ec6ee813c534db0a29aebd29a56e45, type: 3}
-      propertyPath: m_Speed
-      value: 6
-      objectReference: {fileID: 0}
-    - target: {fileID: 7293635194623528990, guid: c2ec6ee813c534db0a29aebd29a56e45, type: 3}
-      propertyPath: m_Acceleration
-      value: 30
-      objectReference: {fileID: 0}
-    - target: {fileID: 7293635194623528990, guid: c2ec6ee813c534db0a29aebd29a56e45, type: 3}
-      propertyPath: m_AngularSpeed
-      value: 300
-      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
