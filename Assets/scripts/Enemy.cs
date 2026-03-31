@@ -65,23 +65,36 @@ public class Enemy : MonoBehaviour
     }
 
     // ----------------------------------------------------------------
-    private void Start()
+    /*private void Start()
     {
         GameObject playerObj = GameObject.FindWithTag("Player");
         if (playerObj != null)
             _player = playerObj.transform;
+    }*/
+    private void Start()
+{
+    GameObject playerObj = GameObject.FindWithTag("Player");
+    if (playerObj != null)
+    {
+        _player = playerObj.transform;
+        Debug.LogError($"Enemy found player: {playerObj.name} at {playerObj.transform.position}");
     }
+    else
+    {
+        Debug.LogError("Enemy could NOT find player!");
+    }
+}
 
     // ----------------------------------------------------------------
-private void Update()
+/*private void Update()
 {
     if (_isDead || _isKnockedBack || _player == null) return;
 
     float distanceToPlayer = Vector3.Distance(transform.position, _player.position);
     _attackTimer -= Time.deltaTime;
 
-    Debug.Log($"Distance: {distanceToPlayer} | AttackRange: {attackRange} | Velocity: {_agent.velocity}");
-
+    //Debug.Log($"Distance: {distanceToPlayer} | AttackRange: {attackRange} | Velocity: {_agent.velocity}");
+    Debug.Log($"Distance: {distanceToPlayer} | AttackRange: {attackRange} | Velocity: {_agent.velocity} | PathStatus: {_agent.pathStatus} | HasPath: {_agent.hasPath}");
     if (distanceToPlayer <= attackRange)
     {
         _agent.SetDestination(transform.position);
@@ -95,8 +108,32 @@ private void Update()
         _agent.SetDestination(_player.position);
         animator.SetBool(AnimIsWalking, true);
     }
-}
+}*/
+    private void Update()
+{
+    if (_isDead || _isKnockedBack || _player == null) return;
 
+    float distanceToPlayer = Vector3.Distance(transform.position, _player.position);
+    _attackTimer -= Time.deltaTime;
+
+    if (distanceToPlayer <= attackRange)
+    {
+        // Use isStopped instead of SetDestination(transform.position) 
+        // to prevent path recalculation errors
+        _agent.isStopped = true; 
+        animator.SetBool(AnimIsWalking, false);
+
+        if (!_isAttacking && _attackTimer <= 0f)
+            StartCoroutine(AttackRoutine());
+    }
+    else
+    {
+        _agent.isStopped = false;
+        // Only update destination if player has moved significantly to save performance
+        _agent.SetDestination(_player.position);
+        animator.SetBool(AnimIsWalking, true);
+    }
+}
     // ----------------------------------------------------------------
     private IEnumerator AttackRoutine()
     {
