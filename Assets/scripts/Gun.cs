@@ -1,5 +1,5 @@
 // ================================================================
-// Gun.cs — updated with reloading
+// Gun.cs — updated with sound
 // ================================================================
 using UnityEngine;
 using UnityEngine.Events;
@@ -16,19 +16,21 @@ public class Gun : MonoBehaviour
     public int reserveAmmo = 30;
     public float reloadDuration = 1.5f;
 
+    [Header("Sound")]
+    [SerializeField] private AudioSource _audioSource;
+    [SerializeField] private AudioClip _shootSound;
+    [SerializeField] private AudioClip _reloadSound;
+    [SerializeField] private AudioClip _emptySound;     // click sound when mag is empty
+
     [Header("Animator")]
     [SerializeField] private Animator gunAnimator;
 
-    // animator parameter — must match your Animator exactly
     private static readonly int AnimReload = Animator.StringToHash("Reload");
 
-    // ----------------------------------------------------------------
-    // public so UI can read them
-    public int CurrentAmmo   { get; private set; }
-    public int ReserveAmmo   { get; private set; }
-    public bool IsReloading  { get; private set; } = false;
+    public int CurrentAmmo  { get; private set; }
+    public int ReserveAmmo  { get; private set; }
+    public bool IsReloading { get; private set; } = false;
 
-    // events for UI
     public event System.Action OnAmmoChanged;
 
     private float _currentCooldown;
@@ -43,7 +45,6 @@ public class Gun : MonoBehaviour
     // ----------------------------------------------------------------
     private void Update()
     {
-        // block all gun input during hangover or reload
         if (IsReloading) return;
         if (DrunkManager.Instance != null && DrunkManager.Instance.IsHangover) return;
 
@@ -77,7 +78,10 @@ public class Gun : MonoBehaviour
     {
         if (CurrentAmmo <= 0)
         {
-            // auto trigger reload if magazine is empty
+            // play empty click sound
+            if (_audioSource != null && _emptySound != null)
+                _audioSource.PlayOneShot(_emptySound);
+
             StartCoroutine(ReloadRoutine());
             return;
         }
@@ -85,13 +89,17 @@ public class Gun : MonoBehaviour
         OnGunShoot?.Invoke();
         CurrentAmmo--;
         _currentCooldown = FireCooldown;
+
+        // play shoot sound
+        if (_audioSource != null && _shootSound != null)
+            _audioSource.PlayOneShot(_shootSound);
+
         OnAmmoChanged?.Invoke();
     }
 
     // ----------------------------------------------------------------
     private void HandleReloadInput()
     {
-        // don't reload if magazine is already full or no reserve ammo
         if (Input.GetKeyDown(KeyCode.R) && CurrentAmmo < magazineSize && ReserveAmmo > 0)
             StartCoroutine(ReloadRoutine());
     }
@@ -103,13 +111,15 @@ public class Gun : MonoBehaviour
 
         IsReloading = true;
 
-        // play reload animation
         if (gunAnimator != null)
             gunAnimator.SetTrigger(AnimReload);
 
+        // play reload sound
+        if (_audioSource != null && _reloadSound != null)
+            _audioSource.PlayOneShot(_reloadSound);
+
         yield return new UnityEngine.WaitForSeconds(reloadDuration);
 
-        // calculate how many bullets we need and how many reserve has
         int bulletsNeeded = magazineSize - CurrentAmmo;
         int bulletsToLoad = Mathf.Min(bulletsNeeded, ReserveAmmo);
 

@@ -29,8 +29,6 @@ public class Enemy : MonoBehaviour
     [Header("Death")]
     [SerializeField] private float deathAnimationDuration = 2f;
 
-    [Header("Knockback")]
-    [SerializeField] private float knockbackDuration = 0.4f;
 
     [Header("Drop Table")]
     [SerializeField] private DropTable dropTable;
@@ -52,7 +50,6 @@ public class Enemy : MonoBehaviour
     private Transform    _player;
     private bool         _isDead        = false;
     private bool         _isAttacking   = false;
-    private bool         _isKnockedBack = false;
     private float        _attackTimer   = 0f;
 
     // ----------------------------------------------------------------
@@ -111,7 +108,7 @@ public class Enemy : MonoBehaviour
 }*/
     private void Update()
 {
-    if (_isDead || _isKnockedBack || _player == null) return;
+    if (_isDead || _player == null) return;
 
     float distanceToPlayer = Vector3.Distance(transform.position, _player.position);
     _attackTimer -= Time.deltaTime;
@@ -172,38 +169,9 @@ public class Enemy : MonoBehaviour
     }
 
     // ----------------------------------------------------------------
-    public void ApplyKnockback(Vector3 force)
-    {
-        if (_isDead) return;
-        StartCoroutine(KnockbackRoutine(force));
-    }
 
     // ----------------------------------------------------------------
-    private IEnumerator KnockbackRoutine(Vector3 force)
-    {
-        _isKnockedBack   = true;
-        _agent.isStopped = true;
-        _agent.enabled   = false;
 
-        float elapsed = 0f;
-        while (elapsed < knockbackDuration)
-        {
-            // decelerate over the duration — goes from full force to zero
-            float t = 1f - (elapsed / knockbackDuration);
-            transform.position += force * t * Time.deltaTime;
-            elapsed += Time.deltaTime;
-            yield return null;
-        }
-
-        // re-enable navmesh if still alive
-        if (!_isDead)
-        {
-            _agent.enabled   = true;
-            _agent.isStopped = false;
-        }
-
-        _isKnockedBack = false;
-    }
 
     // ----------------------------------------------------------------
     private IEnumerator Die()

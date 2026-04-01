@@ -1,36 +1,37 @@
 // ================================================================
-// DamageGun.cs — updated
+// DamageGun.cs
 // ================================================================
 using UnityEngine;
 
 public class DamageGun : MonoBehaviour
 {
+    [Header("Stats")]
     public float Damage;
     public float BulletRange;
 
     [Header("Weapon Sway")]
-    [SerializeField] private WeaponSway weaponSway;  // drag WeaponHolder here
+    [SerializeField] private WeaponSway weaponSway;
 
-    private Transform PlayerCamera;
+    private Transform _playerCamera;
 
-    void Start()
+    // ----------------------------------------------------------------
+    private void Start()
     {
-        PlayerCamera = Camera.main.transform;
+        _playerCamera = Camera.main.transform;
     }
 
+    // ----------------------------------------------------------------
     public void Shoot()
     {
-        Ray gunRay = new Ray(PlayerCamera.position, PlayerCamera.forward);
+        Ray gunRay = new Ray(_playerCamera.position, _playerCamera.forward);
 
         if (Physics.Raycast(gunRay, out RaycastHit hitInfo, BulletRange))
         {
-            // works with your Enemy.cs TakeDamage method
             Enemy enemy = hitInfo.collider.GetComponent<Enemy>();
             if (enemy != null)
                 enemy.TakeDamage(Damage);
         }
 
-        // trigger recoil on the weapon sway system
         if (weaponSway != null)
             weaponSway.ApplyRecoil();
     }

@@ -358,13 +358,12 @@ public class FPSCharacterController : MonoBehaviour
     {
         Enemy enemy = hit.GetComponent<Enemy>();
         if (enemy != null)
-        {
             enemy.TakeDamage(groundSlamDamage);
-
-            Vector3 knockbackDir = (hit.transform.position - transform.position).normalized;
-            enemy.ApplyKnockback(knockbackDir * groundSlamForce);
-        }
     }
+
+    // trigger the screen effect
+    if (SlamEffect.Instance != null)
+        SlamEffect.Instance.PlaySlamEffect();
 
     Debug.Log($"[GroundSlam] Hit {hits.Length} enemies.");
 }
