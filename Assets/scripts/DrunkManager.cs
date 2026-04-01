@@ -15,12 +15,22 @@ public class DrunkManager : MonoBehaviour
     [SerializeField] private float currentInstability = 0f;
 
     [Header("Hangover")]
-    [SerializeField] private float hangoverThreshold = 80f;    // instability level that triggers hangover
+    [SerializeField] private float hangoverThreshold = 80f;
     [SerializeField] private float hangoverDuration = 3f;
-    [SerializeField] private float instabilityDecayRate = 2f;  // instability lost per second naturally
+    [SerializeField] private float instabilityDecayRate = 2f;
+
+    [Header("Drunk Headbob — Sober")]
+    [SerializeField] private float soberVerticalAmplitude = 0.05f;
+    [SerializeField] private float soberVerticalFrequency = 8f;
+    [SerializeField] private float soberTiltAmplitude = 1.5f;
+
+    [Header("Drunk Headbob — Drunk")]
+    [SerializeField] private float drunkVerticalAmplitude = 0.15f;
+    [SerializeField] private float drunkVerticalFrequency = 4f;     // slower = wobblier
+    [SerializeField] private float drunkTiltAmplitude = 8f;         // more tilt = more drunk
 
     // events
-    public event Action<float, float> OnInstabilityChanged;    // (current, max)
+    public event Action<float, float> OnInstabilityChanged;
     public event Action OnHangoverStarted;
     public event Action OnHangoverEnded;
 
@@ -38,8 +48,6 @@ public class DrunkManager : MonoBehaviour
     // ----------------------------------------------------------------
     private void Update()
     {
-        // instability naturally decays over time so the player
-        // can recover without needing stabilizing items
         if (currentInstability > 0f && !IsHangover)
         {
             currentInstability = Mathf.Clamp(
@@ -47,6 +55,9 @@ public class DrunkManager : MonoBehaviour
                 0f, maxInstability
             );
             OnInstabilityChanged?.Invoke(currentInstability, maxInstability);
+
+            // update headbob every frame as instability decays
+            UpdateDrunkBob();
         }
     }
 
@@ -58,6 +69,7 @@ public class DrunkManager : MonoBehaviour
         currentInstability = Mathf.Clamp(currentInstability + amount, 0f, maxInstability);
         OnInstabilityChanged?.Invoke(currentInstability, maxInstability);
 
+        UpdateDrunkBob();
         CheckHangover();
     }
 
@@ -66,6 +78,31 @@ public class DrunkManager : MonoBehaviour
     {
         currentInstability = Mathf.Clamp(currentInstability - amount, 0f, maxInstability);
         OnInstabilityChanged?.Invoke(currentInstability, maxInstability);
+
+        UpdateDrunkBob();
+    }
+
+    // ----------------------------------------------------------------
+    private void UpdateDrunkBob()
+    {
+        if (FPSCharacterController.Instance == null) return;
+
+        // t goes from 0 (sober) to 1 (fully drunk)
+        float t = currentInstability / maxInstability;
+
+        // interpolate all bob values between sober and drunk
+        FPSCharacterController.HeadbobProfile drunkProfile = new FPSCharacterController.HeadbobProfile
+        {
+            profileName       = "Drunk",
+            verticalAmplitude = Mathf.Lerp(soberVerticalAmplitude, drunkVerticalAmplitude, t),
+            verticalFrequency = Mathf.Lerp(soberVerticalFrequency, drunkVerticalFrequency, t),
+            tiltAmplitude     = Mathf.Lerp(soberTiltAmplitude,     drunkTiltAmplitude,     t),
+            tiltFrequency     = Mathf.Lerp(soberVerticalFrequency, drunkVerticalFrequency, t),
+            bobSmoothSpeed    = Mathf.Lerp(10f, 4f, t),    // drunk feels more sluggish
+            returnSpeed       = Mathf.Lerp(6f,  2f, t)     // slower return when drunk
+        };
+
+        FPSCharacterController.Instance.SetHeadbobProfile(drunkProfile);
     }
 
     // ----------------------------------------------------------------
@@ -80,23 +117,21 @@ public class DrunkManager : MonoBehaviour
     {
         IsHangover = true;
         OnHangoverStarted?.Invoke();
-        Debug.Log("Hangover started!");
 
-        // lock player movement
         if (FPSCharacterController.Instance != null)
             FPSCharacterController.Instance.SetMovementLocked(true);
 
         yield return new WaitForSeconds(hangoverDuration);
 
-        // reset instability after sobering up a bit
         currentInstability = hangoverThreshold * 0.4f;
         OnInstabilityChanged?.Invoke(currentInstability, maxInstability);
 
+        // reset bob back towards sober after hangover
+        UpdateDrunkBob();
+
         IsHangover = false;
         OnHangoverEnded?.Invoke();
-        Debug.Log("Hangover ended.");
 
-        // unlock movement
         if (FPSCharacterController.Instance != null)
             FPSCharacterController.Instance.SetMovementLocked(false);
     }
