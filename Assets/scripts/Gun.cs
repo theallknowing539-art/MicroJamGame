@@ -72,6 +72,11 @@ public class Gun : MonoBehaviour
                 TryShoot();
         }
     }
+    public void AddReserveAmmo(int amount)
+{
+    ReserveAmmo += amount;
+    OnAmmoChanged?.Invoke();
+}
 
     // ----------------------------------------------------------------
     private void TryShoot()
