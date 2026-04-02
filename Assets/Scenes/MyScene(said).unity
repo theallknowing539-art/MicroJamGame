@@ -156,7 +156,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -579.61, y: -417.6}
+  m_AnchoredPosition: {x: -579.61, y: -450.4}
   m_SizeDelta: {x: 200, y: 50}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &26941619
@@ -491,7 +491,7 @@ MonoBehaviour:
   m_MinValue: 0
   m_MaxValue: 1
   m_WholeNumbers: 0
-  m_Value: 0
+  m_Value: 1
   m_OnValueChanged:
     m_PersistentCalls:
       m_Calls: []
@@ -552,12 +552,12 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 10905, guid: 0000000000000000f000000000000000, type: 0}
-  m_Type: 3
+  m_Sprite: {fileID: 10911, guid: 0000000000000000f000000000000000, type: 0}
+  m_Type: 1
   m_PreserveAspect: 0
   m_FillCenter: 1
   m_FillMethod: 0
-  m_FillAmount: 1
+  m_FillAmount: 0
   m_FillClockwise: 1
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
@@ -1471,8 +1471,8 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 10905, guid: 0000000000000000f000000000000000, type: 0}
-  m_Type: 3
+  m_Sprite: {fileID: 10911, guid: 0000000000000000f000000000000000, type: 0}
+  m_Type: 1
   m_PreserveAspect: 0
   m_FillCenter: 1
   m_FillMethod: 0
@@ -1523,7 +1523,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -579.61, y: -491.5}
+  m_AnchoredPosition: {x: -305.07, y: -457}
   m_SizeDelta: {x: 200, y: 50}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1033149315
@@ -2012,7 +2012,6 @@ GameObject:
   - component: {fileID: 1226758130}
   - component: {fileID: 1226758134}
   - component: {fileID: 1226758135}
-  - component: {fileID: 1226758136}
   m_Layer: 0
   m_Name: Player
   m_TagString: Player
@@ -2062,6 +2061,8 @@ MonoBehaviour:
   enemyLayer:
     serializedVersion: 2
     m_Bits: 64
+  groundSlamKnockbackEnabled: 1
+  groundSlamKnockbackForce: 20
   cameraHolder: {fileID: 239920636}
   weaponSway: {fileID: 1878147812}
   walkProfile:
@@ -2225,25 +2226,6 @@ MonoBehaviour:
   minJumpStamina: 10
   staminaSlider: {fileID: 1625285567}
   sliderSmoothSpeed: 5
---- !u!114 &1226758136
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1226758126}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ed3d7b1612b6e1c43a76e7a402c8ece9, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  _bottleIcon: {fileID: 1558901340}
-  _bottleCountText: {fileID: 571088626}
-  _rumBottleData: {fileID: 11400000, guid: 5ac0678dd811e534cbd87c8a84ce6006, type: 2}
-  _ammoIcon: {fileID: 99433672}
-  _ammoCountText: {fileID: 26941619}
-  _ammoReserveText: {fileID: 1033149315}
-  _gun: {fileID: 1878147811}
 --- !u!1 &1232802882
 GameObject:
   m_ObjectHideFlags: 0
@@ -2325,6 +2307,7 @@ GameObject:
   - component: {fileID: 1248240122}
   - component: {fileID: 1248240121}
   - component: {fileID: 1248240125}
+  - component: {fileID: 1248240126}
   m_Layer: 5
   m_Name: Canvas
   m_TagString: Untagged
@@ -2438,14 +2421,43 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   healthSlider: {fileID: 689739258}
-  healthText: {fileID: 0}
   instabilitySlider: {fileID: 167093629}
-  instabilityText: {fileID: 0}
+  ammoIcon: {fileID: 99433672}
+  ammoSprite: {fileID: 21300000, guid: b1adc51ec1e1eee488d840d2fd4612ad, type: 3}
+  ammoCurrentText: {fileID: 26941619}
+  ammoReserveText: {fileID: 1033149315}
+  _gun: {fileID: 1878147811}
+  bottleIcon: {fileID: 1558901340}
+  bottleCountText: {fileID: 571088626}
+  rumBottleData: {fileID: 11400000, guid: 5ac0678dd811e534cbd87c8a84ce6006, type: 2}
   waveCounterText: {fileID: 1226354827}
   enemyCountText: {fileID: 0}
   waveStatusText: {fileID: 0}
-  bottleCountText: {fileID: 0}
-  rumBottleData: {fileID: 0}
+--- !u!114 &1248240126
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1248240120}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 268b2ed6fd167a8468e3820842449600, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _canvas: {fileID: 1248240123}
+  _minLineCount: 6
+  _maxLineCount: 12
+  _minLineWidth: 2
+  _maxLineWidth: 6
+  _minLineHeight: 100
+  _maxLineHeight: 400
+  _lineColor: {r: 0, g: 0, b: 0, a: 0.5372549}
+  _minOpacity: 0.3
+  _maxOpacity: 0.9
+  _moveDuration: 0.2
+  _fadeDuration: 0.18
+  _moveDistance: 300
 --- !u!1 &1532431193
 GameObject:
   m_ObjectHideFlags: 0
@@ -2457,7 +2469,6 @@ GameObject:
   - component: {fileID: 1532431194}
   - component: {fileID: 1532431196}
   - component: {fileID: 1532431195}
-  - component: {fileID: 1532431197}
   m_Layer: 0
   m_Name: MainCamera
   m_TagString: MainCamera
@@ -2539,23 +2550,6 @@ Camera:
   m_OcclusionCulling: 1
   m_StereoConvergence: 10
   m_StereoSeparation: 0.022
---- !u!114 &1532431197
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1532431193}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 268b2ed6fd167a8468e3820842449600, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  _lineCount: 4
-  _lineWidth: 1
-  _expandDuration: 0.07
-  _fadeDuration: 0.18
-  _lineColor: {r: 0, g: 0, b: 0, a: 0.5372549}
 --- !u!1 &1558901338
 GameObject:
   m_ObjectHideFlags: 0
@@ -3049,8 +3043,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0.25}
   m_AnchorMax: {x: 1, y: 0.75}
-  m_AnchoredPosition: {x: -5, y: 0}
-  m_SizeDelta: {x: -20, y: 0}
+  m_AnchoredPosition: {x: 2.5, y: 0}
+  m_SizeDelta: {x: -5, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &2062781340
 GameObject:

@@ -14,7 +14,7 @@ public class Enemy : MonoBehaviour
     // ----------------------------------------------------------------
     [Header("Health")]
     [SerializeField] private float maxHealth = 100f;
-    [SerializeField]private float _currentHealth;
+    private float _currentHealth;
 
     [Header("Movement")]
     [SerializeField] private float moveSpeed = 3.5f;
@@ -29,6 +29,9 @@ public class Enemy : MonoBehaviour
     [Header("Death")]
     [SerializeField] private float deathAnimationDuration = 2f;
 
+    [Header("Knockback")]
+    [SerializeField] private float knockbackDuration = 0.4f;
+    [SerializeField] private float knockbackSpeed = 8f;
 
     [Header("Drop Table")]
     [SerializeField] private DropTable dropTable;
@@ -40,8 +43,6 @@ public class Enemy : MonoBehaviour
     // Animator parameter hashes
     // ----------------------------------------------------------------
     private static readonly int AnimIsWalking = Animator.StringToHash("IsWalking");
-    private static readonly int AnimAttack    = Animator.StringToHash("Attack");
-    private static readonly int AnimDeath     = Animator.StringToHash("Death");
 
     // ----------------------------------------------------------------
     // Private state
@@ -50,6 +51,7 @@ public class Enemy : MonoBehaviour
     private Transform    _player;
     private bool         _isDead        = false;
     private bool         _isAttacking   = false;
+    private bool         _isKnockedBack = false;
     private float        _attackTimer   = 0f;
 
     // ----------------------------------------------------------------
@@ -58,79 +60,48 @@ public class Enemy : MonoBehaviour
         _agent                  = GetComponent<NavMeshAgent>();
         _agent.speed            = moveSpeed;
         _agent.stoppingDistance = stoppingDistance;
+        _agent.autoBraking      = false;
         _currentHealth          = maxHealth;
     }
 
     // ----------------------------------------------------------------
-    /*private void Start()
+    private void Start()
     {
+        _agent.Warp(transform.position);
+
         GameObject playerObj = GameObject.FindWithTag("Player");
         if (playerObj != null)
             _player = playerObj.transform;
-    }*/
-    private void Start()
-{
-    GameObject playerObj = GameObject.FindWithTag("Player");
-    if (playerObj != null)
-    {
-        _player = playerObj.transform;
-        Debug.LogError($"Enemy found player: {playerObj.name} at {playerObj.transform.position}");
+
+        animator.SetBool(AnimIsWalking, false);
     }
-    else
-    {
-        Debug.LogError("Enemy could NOT find player!");
-    }
-}
 
     // ----------------------------------------------------------------
-/*private void Update()
-{
-    if (_isDead || _isKnockedBack || _player == null) return;
-
-    float distanceToPlayer = Vector3.Distance(transform.position, _player.position);
-    _attackTimer -= Time.deltaTime;
-
-    //Debug.Log($"Distance: {distanceToPlayer} | AttackRange: {attackRange} | Velocity: {_agent.velocity}");
-    Debug.Log($"Distance: {distanceToPlayer} | AttackRange: {attackRange} | Velocity: {_agent.velocity} | PathStatus: {_agent.pathStatus} | HasPath: {_agent.hasPath}");
-    if (distanceToPlayer <= attackRange)
-    {
-        _agent.SetDestination(transform.position);
-        animator.SetBool(AnimIsWalking, false);
-
-        if (!_isAttacking && _attackTimer <= 0f)
-            StartCoroutine(AttackRoutine());
-    }
-    else
-    {
-        _agent.SetDestination(_player.position);
-        animator.SetBool(AnimIsWalking, true);
-    }
-}*/
     private void Update()
-{
-    if (_isDead || _player == null) return;
-
-    float distanceToPlayer = Vector3.Distance(transform.position, _player.position);
-    _attackTimer -= Time.deltaTime;
-
-    if (distanceToPlayer <= attackRange)
     {
-        // Use isStopped instead of SetDestination(transform.position) 
-        // to prevent path recalculation errors
-        _agent.isStopped = true; 
-        animator.SetBool(AnimIsWalking, false);
+        if (_isDead || _isKnockedBack || _player == null) return;
 
-        if (!_isAttacking && _attackTimer <= 0f)
-            StartCoroutine(AttackRoutine());
+        float distanceToPlayer = Vector3.Distance(transform.position, _player.position);
+        _attackTimer -= Time.deltaTime;
+
+        if (distanceToPlayer <= attackRange)
+        {
+            _agent.SetDestination(transform.position);
+            animator.SetBool(AnimIsWalking, false);
+
+            if (!_isAttacking && _attackTimer <= 0f)
+                StartCoroutine(AttackRoutine());
+        }
+        else
+        {
+            if (_isAttacking)
+                _isAttacking = false;
+
+            _agent.SetDestination(_player.position);
+            animator.SetBool(AnimIsWalking, true);
+        }
     }
-    else
-    {
-        _agent.isStopped = false;
-        // Only update destination if player has moved significantly to save performance
-        _agent.SetDestination(_player.position);
-        animator.SetBool(AnimIsWalking, true);
-    }
-}
+
     // ----------------------------------------------------------------
     private IEnumerator AttackRoutine()
     {
@@ -139,20 +110,26 @@ public class Enemy : MonoBehaviour
 
         // face the player
         Vector3 direction = (_player.position - transform.position).normalized;
-        transform.rotation = Quaternion.LookRotation(new Vector3(direction.x, 0f, direction.z));
+        transform.rotation = Quaternion.LookRotation(
+            new Vector3(direction.x, 0f, direction.z));
 
-        animator.SetTrigger(AnimAttack);
+        // force play attack animation
+        animator.SetBool(AnimIsWalking, false);
+        animator.Play("Attack");
 
         // wait for wind-up
         yield return new WaitForSeconds(windUpDuration);
 
-        // only deal damage if player is still in range after wind-up
+        // only deal damage if player still in range after wind-up
         if (!_isDead && _player != null)
         {
             float dist = Vector3.Distance(transform.position, _player.position);
             if (dist <= attackRange)
                 PlayerHealth.Instance.TakeDamage(attackDamage);
         }
+
+        // wait for rest of attack animation to finish
+        yield return new WaitForSeconds(attackCooldown - windUpDuration);
 
         _isAttacking = false;
     }
@@ -169,18 +146,61 @@ public class Enemy : MonoBehaviour
     }
 
     // ----------------------------------------------------------------
+    // Knockback — only moves transform, never touches NavMeshAgent
+    // ----------------------------------------------------------------
+    public void ApplyKnockback(Vector3 force)
+    {
+        if (_isDead) return;
+        StartCoroutine(KnockbackRoutine(force));
+    }
 
     // ----------------------------------------------------------------
+    private IEnumerator KnockbackRoutine(Vector3 force)
+    {
+        _isKnockedBack = true;
 
+        // tell the agent to stay still without disabling it
+        _agent.isStopped = true;
+
+        float elapsed = 0f;
+        while (elapsed < knockbackDuration)
+        {
+            // decelerate over duration
+            float t = 1f - (elapsed / knockbackDuration);
+
+            // move transform directly — agent is stopped but still enabled
+            // so it snaps back to navmesh automatically when isStopped = false
+            transform.position += force * t * knockbackSpeed * Time.deltaTime;
+
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+
+        // resume agent from new position
+        _agent.isStopped = false;
+
+        if (_player != null)
+            _agent.SetDestination(_player.position);
+
+        _isKnockedBack = false;
+    }
 
     // ----------------------------------------------------------------
     private IEnumerator Die()
     {
-        _isDead          = true;
-        _agent.isStopped = true;
-        _agent.enabled   = false;
+        _isDead      = true;
+        _isAttacking = false;
 
-        animator.SetTrigger(AnimDeath);
+        _agent.isStopped = true;
+        _agent.velocity  = Vector3.zero;
+
+        animator.SetBool(AnimIsWalking, false);
+
+        // wait one frame before playing death
+        yield return null;
+
+        _agent.enabled = false;
+        animator.Play("Death");
 
         WaveManager.Instance.ReportEnemyDeath();
         RollDrop();
@@ -203,3 +223,18 @@ public class Enemy : MonoBehaviour
         }
     }
 }
+/*
+```
+
+---
+
+**What changed for knockback:**
+
+The agent is never disabled — only `isStopped = true` is set which pauses pathfinding but keeps the agent alive and connected to the NavMesh. The transform is moved directly during the knockback duration. When `isStopped = false` is set afterward the agent snaps back onto the NavMesh from its new position automatically and resumes chasing.
+```
+Knockback starts
+  → agent.isStopped = true    (paused, still on NavMesh)
+  → transform moves away from player each frame
+  → knockback ends
+  → agent.isStopped = false   (resumes from new position)
+  → SetDestination(player)    (starts chasing again)*/

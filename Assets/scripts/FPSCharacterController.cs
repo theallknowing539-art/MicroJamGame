@@ -44,6 +44,8 @@ public class FPSCharacterController : MonoBehaviour
     [SerializeField] private float groundSlamRadius = 3f;
     [SerializeField] private float groundSlamDamage = 30f;
     [SerializeField] private LayerMask enemyLayer;
+    public bool groundSlamKnockbackEnabled = false;
+    [SerializeField] private float groundSlamKnockbackForce = 15f;
 
     [Header("References")]
     [SerializeField] private Transform cameraHolder;
@@ -226,7 +228,6 @@ public class FPSCharacterController : MonoBehaviour
         {
             _jumpPressed = false;
 
-            // check stamina before allowing jump
             bool staminaAllowsJump = Stamina.Instance == null || Stamina.Instance.CanJump;
 
             if (staminaAllowsJump)
@@ -239,7 +240,6 @@ public class FPSCharacterController : MonoBehaviour
                     _velocity.y = JumpVelocityForHeight(firstJumpHeight);
                     _jumpsUsed  = 1;
 
-                    // consume stamina on jump
                     if (Stamina.Instance != null)
                         Stamina.Instance.UseJumpStamina();
                 }
@@ -251,7 +251,6 @@ public class FPSCharacterController : MonoBehaviour
                     _velocity.y = JumpVelocityForHeight(thisAirHeight);
                     _jumpsUsed += 1;
 
-                    // consume stamina on air jump too
                     if (Stamina.Instance != null)
                         Stamina.Instance.UseJumpStamina();
 
@@ -278,7 +277,7 @@ public class FPSCharacterController : MonoBehaviour
 
         _velocity.y += gravity * Time.deltaTime;
 
-        // ---- sprint — blocked when exhausted ----
+        // ---- sprint ----
         bool staminaAllowsSprint = Stamina.Instance == null || !Stamina.Instance.IsExhausted;
         _isSprinting = !_isCrouching && !_isSliding && staminaAllowsSprint
                     && (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift));
@@ -350,13 +349,24 @@ public class FPSCharacterController : MonoBehaviour
         {
             Enemy enemy = hit.GetComponent<Enemy>();
             if (enemy != null)
+            {
                 enemy.TakeDamage(groundSlamDamage);
+
+                // only knockback if buff is active
+                if (groundSlamKnockbackEnabled)
+                {
+                    Vector3 knockbackDir = (hit.transform.position
+                        - transform.position).normalized;
+                    enemy.ApplyKnockback(knockbackDir * groundSlamKnockbackForce);
+                }
+            }
         }
 
         if (SlamEffect.Instance != null)
             SlamEffect.Instance.PlaySlamEffect();
 
-        Debug.Log($"[GroundSlam] Hit {hits.Length} enemies.");
+        Debug.Log($"[GroundSlam] Hit {hits.Length} enemies. " +
+                  $"Knockback: {groundSlamKnockbackEnabled}");
     }
 
     // ----------------------------------------------------------------
