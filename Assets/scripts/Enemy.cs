@@ -22,8 +22,9 @@ public class Enemy : MonoBehaviour
     [SerializeField] private float windUpDuration = 0.8f;
     [SerializeField] private float attackCooldown = 1.5f;
 
-    [Header("Death")]
+    [Header("Death Effects")]
     [SerializeField] private float deathAnimationDuration = 2f;
+    [SerializeField] private GameObject boneParticlePrefab; // Shatter effect
 
     [Header("Knockback")]
     [SerializeField] private float knockbackDuration = 0.4f;
@@ -119,13 +120,11 @@ public class Enemy : MonoBehaviour
                 _audioSource.clip = hitSound;
                 _audioSource.volume = hitVolume;
                 _audioSource.Play();
-                // Forces sound to stop after 0.5s so it doesn't linger
                 Invoke("StopEnemySound", 0.5f); 
             }
             StartCoroutine(Die());
         }
 
-        // Snappy Hit-Stop (only 30 milliseconds)
         if (HitStopManager.Instance != null) HitStopManager.Instance.Stop(0.03f); 
         StartCoroutine(FlashRed());
         if (CameraShake.Instance != null) CameraShake.Instance.Shake(0.15f);
@@ -176,9 +175,16 @@ public class Enemy : MonoBehaviour
         _isAttacking = false;
         _agent.isStopped = true;
         _agent.velocity = Vector3.zero;
+
+        // 1. Shatter Effect
+        if (boneParticlePrefab != null)
+        {
+            Instantiate(boneParticlePrefab, transform.position + Vector3.up * 0.5f, Quaternion.identity);
+        }
+
         animator.SetBool(AnimIsWalking, false);
-        
         yield return null;
+        
         _agent.enabled = false;
         animator.Play("Death");
 
@@ -186,7 +192,7 @@ public class Enemy : MonoBehaviour
         RollDrop();
 
         yield return new WaitForSeconds(deathAnimationDuration);
-        StopEnemySound(); // Final sound cleanup
+        StopEnemySound(); 
         Destroy(gameObject);
     }
 

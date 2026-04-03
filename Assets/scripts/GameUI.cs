@@ -5,6 +5,10 @@ using System.Collections;
 
 public class GameUI : MonoBehaviour
 {
+    [Header("Drunk Subtitles")]
+    [SerializeField] private TextMeshProUGUI subtitleText;
+    [SerializeField] private float subtitleDisplayTime = 2f;
+
     [Header("Health Bar")]
     [SerializeField] private Slider healthSlider;
 
@@ -28,10 +32,8 @@ public class GameUI : MonoBehaviour
     [SerializeField] private TextMeshProUGUI enemyCountText;
     [SerializeField] private TextMeshProUGUI waveStatusText;
 
-    // ----------------------------------------------------------------
     private void Start()
     {
-        // set icons immediately
         if (ammoIcon != null && ammoSprite != null)
             ammoIcon.sprite = ammoSprite;
 
@@ -41,7 +43,6 @@ public class GameUI : MonoBehaviour
         StartCoroutine(SetupUI());
     }
 
-    // ----------------------------------------------------------------
     private IEnumerator SetupUI()
     {
         yield return null;
@@ -49,8 +50,9 @@ public class GameUI : MonoBehaviour
         if (PlayerHealth.Instance != null)
             PlayerHealth.Instance.OnHealthChanged += HandleHealthChanged;
 
-        if (DrunkManager.Instance != null)
-            DrunkManager.Instance.OnInstabilityChanged += HandleInstabilityChanged;
+        // FIXED: Subscribing to static event (No .Instance)
+        DrunkManager.OnInstabilityChanged += HandleInstabilityChanged;
+        DrunkManager.OnInstabilityChanged += HandleDrunkDialogue;
 
         if (WaveManager.Instance != null)
         {
@@ -69,14 +71,14 @@ public class GameUI : MonoBehaviour
         RefreshAll();
     }
 
-    // ----------------------------------------------------------------
     private void OnDestroy()
     {
         if (PlayerHealth.Instance != null)
             PlayerHealth.Instance.OnHealthChanged -= HandleHealthChanged;
 
-        if (DrunkManager.Instance != null)
-            DrunkManager.Instance.OnInstabilityChanged -= HandleInstabilityChanged;
+        // FIXED: Unsubscribing from static event (No .Instance)
+        DrunkManager.OnInstabilityChanged -= HandleInstabilityChanged;
+        DrunkManager.OnInstabilityChanged -= HandleDrunkDialogue;
 
         if (WaveManager.Instance != null)
         {
@@ -93,7 +95,6 @@ public class GameUI : MonoBehaviour
             _gun.OnAmmoChanged -= HandleAmmoChanged;
     }
 
-    // ----------------------------------------------------------------
     private void HandleHealthChanged(float current, float max)
     {
         if (healthSlider != null)
@@ -103,7 +104,6 @@ public class GameUI : MonoBehaviour
         }
     }
 
-    // ----------------------------------------------------------------
     private void HandleInstabilityChanged(float current, float max)
     {
         if (instabilitySlider != null)
@@ -113,39 +113,27 @@ public class GameUI : MonoBehaviour
         }
     }
 
-    // ----------------------------------------------------------------
     private void HandleAmmoChanged()
     {
         if (_gun == null) return;
 
         if (ammoCurrentText != null)
-            ammoCurrentText.text = _gun.IsReloading
-                ? "..."
-                : _gun.CurrentAmmo.ToString();
+            ammoCurrentText.text = _gun.IsReloading ? "..." : _gun.CurrentAmmo.ToString();
 
         if (ammoReserveText != null)
             ammoReserveText.text = $"/ {_gun.ReserveAmmo}";
     }
 
-    // ----------------------------------------------------------------
     private void HandleInventoryChanged()
     {
         if (rumBottleData == null || Inventory.Instance == null) return;
 
         int count = Inventory.Instance.GetCount(rumBottleData);
-
-        if (bottleCountText != null)
-            bottleCountText.text = $"x{count}";
-
-        // hide icon and text when player has no bottles
-        if (bottleIcon != null)
-            bottleIcon.enabled = count > 0;
-
-        if (bottleCountText != null)
-            bottleCountText.enabled = count > 0;
+        if (bottleCountText != null) bottleCountText.text = $"x{count}";
+        if (bottleIcon != null) bottleIcon.enabled = count > 0;
+        if (bottleCountText != null) bottleCountText.enabled = count > 0;
     }
 
-    // ----------------------------------------------------------------
     private void HandleWaveStarted(int wave, int total)
     {
         if (waveCounterText != null) waveCounterText.text = $"Wave {wave}";
@@ -153,40 +141,65 @@ public class GameUI : MonoBehaviour
         if (waveStatusText  != null) waveStatusText.text  = "FIGHT!";
     }
 
-    // ----------------------------------------------------------------
     private void HandleWaveCleared(int wave)
     {
         if (waveStatusText != null) waveStatusText.text = "WAVE CLEARED";
     }
 
-    // ----------------------------------------------------------------
     private void HandleEnemyCountChanged(int remaining)
     {
         if (enemyCountText != null) enemyCountText.text = $"Enemies: {remaining}";
     }
 
-    // ----------------------------------------------------------------
     private void HandleBreakTick(float seconds)
     {
         if (waveStatusText != null)
             waveStatusText.text = $"Next wave in {Mathf.CeilToInt(seconds)}s";
     }
 
-    // ----------------------------------------------------------------
     public void RefreshAll()
     {
         if (PlayerHealth.Instance != null)
-            HandleHealthChanged(
-                PlayerHealth.Instance.CurrentHealth,
-                PlayerHealth.Instance.MaxHealth);
+            HandleHealthChanged(PlayerHealth.Instance.CurrentHealth, PlayerHealth.Instance.MaxHealth);
 
         if (DrunkManager.Instance != null)
-            HandleInstabilityChanged(
-                DrunkManager.Instance.CurrentInstability,
-                DrunkManager.Instance.MaxInstability);
+            HandleInstabilityChanged(DrunkManager.Instance.CurrentInstability, DrunkManager.Instance.MaxInstability);
 
         HandleInventoryChanged();
         HandleAmmoChanged();
     }
-}
 
+    // --- DRUNK DIALOGUE LOGIC ---
+
+    private void HandleDrunkDialogue(float current, float max)
+    {
+        float percentage = current / max; 
+        string slurredText = "";
+
+        if (percentage >= 1.0f) slurredText = "...";
+        else if (percentage >= 0.8f) slurredText = "I'M FINE TRUST ME";
+        else if (percentage >= 0.6f) slurredText = "wha'z goin on...";
+        else if (percentage >= 0.3f) slurredText = "*hic*";
+
+        if (!string.IsNullOrEmpty(slurredText))
+        {
+            StopAllCoroutines(); 
+            StartCoroutine(ShowSubtitle(slurredText));
+        }
+    }
+
+    private IEnumerator ShowSubtitle(string text)
+    {
+        if (subtitleText == null) yield break;
+
+        subtitleText.text = text;
+        subtitleText.gameObject.SetActive(true);
+        subtitleText.transform.localScale = Vector3.one * 1.2f; 
+        
+        yield return new WaitForSeconds(0.1f);
+        subtitleText.transform.localScale = Vector3.one; 
+        
+        yield return new WaitForSeconds(subtitleDisplayTime);
+        subtitleText.text = "";
+    }
+}

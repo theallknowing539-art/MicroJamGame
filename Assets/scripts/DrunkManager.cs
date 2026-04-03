@@ -33,7 +33,7 @@ public class DrunkManager : MonoBehaviour
     [SerializeField] private float drunkTiltAmplitude = 8f;
 
     // events
-    public event Action<float, float> OnInstabilityChanged;
+    public static event System.Action<float, float> OnInstabilityChanged;
     public event Action OnHangoverStarted;
     public event Action OnHangoverEnded;
 
