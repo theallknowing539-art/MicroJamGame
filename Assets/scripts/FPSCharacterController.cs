@@ -9,6 +9,8 @@ public class FPSCharacterController : MonoBehaviour
     [SerializeField] private float walkSpeed = 5f;
     [SerializeField] private float sprintSpeed = 10f;
     [SerializeField] private float gravity = -20f;
+    private float _baseWalkSpeed;
+    private float _baseSprintSpeed;
 
     [Header("Mouse Look")]
     [SerializeField] private float mouseSensitivity = 2f;
@@ -46,6 +48,7 @@ public class FPSCharacterController : MonoBehaviour
     [SerializeField] private LayerMask enemyLayer;
     public bool groundSlamKnockbackEnabled = false;
     [SerializeField] private float groundSlamKnockbackForce = 15f;
+
 
     [Header("References")]
     [SerializeField] private Transform cameraHolder;
@@ -112,6 +115,8 @@ public class FPSCharacterController : MonoBehaviour
     {
         if (Instance != null) { Destroy(gameObject); return; }
         Instance = this;
+        _baseWalkSpeed   = walkSpeed;
+        _baseSprintSpeed = sprintSpeed;
 
         _cc = GetComponent<CharacterController>();
 
@@ -467,4 +472,20 @@ public class FPSCharacterController : MonoBehaviour
     public void SetMaxJumps(int count)          => maxJumps        = Mathf.Max(1, count);
     public void SetFirstJumpHeight(float h)     => firstJumpHeight = Mathf.Max(0.1f, h);
     public void SetAirJumpHeight(float h)       => airJumpHeight   = Mathf.Max(0.1f, h);
+    public void SetWalkSpeedMultiplier(float multiplier)
+    {
+        walkSpeed = _baseWalkSpeed * multiplier;
+    }
+
+    public void SetSprintSpeedMultiplier(float multiplier)
+    {
+        sprintSpeed = _baseSprintSpeed * multiplier;
+    }
+
+    // add this to public API
+public void SetGroundSlamKnockbackMultiplier(float multiplier)
+{
+    groundSlamKnockbackEnabled = true;
+    groundSlamKnockbackForce   = 15f * multiplier;  // 15 is the base value
+}
 }

@@ -8,6 +8,7 @@ public class DamageGun : MonoBehaviour
     [Header("Stats")]
     public float Damage;
     public float BulletRange;
+    private float _baseDamage;
 
     [Header("Weapon Sway")]
     [SerializeField] private WeaponSway weaponSway;
@@ -18,7 +19,13 @@ public class DamageGun : MonoBehaviour
     private void Start()
     {
         _playerCamera = Camera.main.transform;
+        _baseDamage = Damage;
+
     }
+    public void SetDamageMultiplier(float multiplier)
+{
+    Damage = _baseDamage * multiplier;
+}
 
     // ----------------------------------------------------------------
     public void Shoot()

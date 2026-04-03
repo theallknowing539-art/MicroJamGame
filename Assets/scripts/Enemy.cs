@@ -186,29 +186,32 @@ public class Enemy : MonoBehaviour
     }
 
     // ----------------------------------------------------------------
-    private IEnumerator Die()
-    {
-        _isDead      = true;
-        _isAttacking = false;
+private IEnumerator Die()
+{
+    _isDead      = true;
+    _isAttacking = false;
 
-        _agent.isStopped = true;
-        _agent.velocity  = Vector3.zero;
+    _agent.isStopped = true;
+    _agent.velocity  = Vector3.zero;
 
-        animator.SetBool(AnimIsWalking, false);
+    animator.SetBool(AnimIsWalking, false);
 
-        // wait one frame before playing death
-        yield return null;
+    yield return null;
 
-        _agent.enabled = false;
-        animator.Play("Death");
+    _agent.enabled = false;
+    animator.Play("Death");
 
-        WaveManager.Instance.ReportEnemyDeath();
-        RollDrop();
+    WaveManager.Instance.ReportEnemyDeath();
 
-        yield return new WaitForSeconds(deathAnimationDuration);
+    // register kill for buff system
+    if (KillTracker.Instance != null)
+        KillTracker.Instance.RegisterKill();
 
-        Destroy(gameObject);
-    }
+    RollDrop();
+
+    yield return new WaitForSeconds(deathAnimationDuration);
+    Destroy(gameObject);
+}
 
     // ----------------------------------------------------------------
     private void RollDrop()
