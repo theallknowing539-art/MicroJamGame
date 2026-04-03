@@ -1474,6 +1474,9 @@ MonoBehaviour:
   hangoverThreshold: 70
   hangoverDuration: 3
   instabilityDecayRate: 2
+  mainMixer: {fileID: 0}
+  pitchParam: MyDrunkPitch
+  reverbParam: DrunkReverb
   soberVerticalAmplitude: 0.05
   soberVerticalFrequency: 8
   soberTiltAmplitude: 1.5
@@ -3131,6 +3134,8 @@ MonoBehaviour:
         m_CallState: 2
   FireCooldown: 0.5
   Automatic: 0
+  gunshotClip: {fileID: 0}
+  audioSource: {fileID: 0}
   magazineSize: 6
   reserveAmmo: 30
   reloadDuration: 1.5
@@ -3389,7 +3394,7 @@ AudioSource:
   m_GameObject: {fileID: 2126438954}
   m_Enabled: 1
   serializedVersion: 4
-  OutputAudioMixerGroup: {fileID: 0}
+  OutputAudioMixerGroup: {fileID: -1988108412851427074, guid: 4a344c50848c9442e92d8cb3a0d86d27, type: 2}
   m_audioClip: {fileID: 0}
   m_PlayOnAwake: 1
   m_Volume: 1
