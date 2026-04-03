@@ -11,6 +11,12 @@ public class Gun : MonoBehaviour
     public float FireCooldown;
     public bool Automatic;
 
+
+    [SerializeField] private AudioClip gunshotClip; 
+    [SerializeField] private AudioSource audioSource;
+
+
+    
     [Header("Ammo")]
     public int magazineSize = 6;
     public int reserveAmmo = 30;
@@ -85,7 +91,7 @@ public class Gun : MonoBehaviour
         {
             // play empty click sound
             if (_audioSource != null && _emptySound != null)
-                _audioSource.PlayOneShot(_emptySound);
+                _audioSource.PlayOneShot(gunshotClip);
 
             StartCoroutine(ReloadRoutine());
             return;

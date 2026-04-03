@@ -41,5 +41,11 @@ public class DamageGun : MonoBehaviour
 
         if (weaponSway != null)
             weaponSway.ApplyRecoil();
+
+        if (CameraShake.Instance != null)
+        {
+        // Inside your Fire() function
+            CameraShake.Instance.Shake(0.15f, 0.05f);
+        }
     }
 }

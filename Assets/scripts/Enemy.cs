@@ -162,6 +162,8 @@ private Color _originalColor;
         if (_currentHealth <= 0f)
             StartCoroutine(Die());
 
+        CameraShake.Instance.Shake(0.2f, 0.1f);
+
         
     }
     private IEnumerator FlashRed()
