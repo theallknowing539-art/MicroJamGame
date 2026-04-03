@@ -60,25 +60,7 @@ public class DrunkManager : MonoBehaviour
             UpdateDrunkBob();
         }
 
-        // === QUICK TEST CONTROLS (remove later if you want) ===
-        if (Input.GetKeyDown(KeyCode.Space))
-        {
-            RaiseInstability(25f);
-            Debug.Log("Drunk +25 → Current: " + currentInstability);
-        }
-
-        if (Input.GetKeyDown(KeyCode.R))
-        {
-            currentInstability = 0f;
-            OnInstabilityChanged?.Invoke(currentInstability, maxInstability);
-            Debug.Log("Reset to sober");
-        }
-
-        if (Input.GetKeyDown(KeyCode.H) && currentInstability >= hangoverThreshold)
-        {
-            StartCoroutine(HangoverRoutine());
-            Debug.Log("Hangover triggered!");
-        }
+        
     }
 
     // ----------------------------------------------------------------

@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Collections;
 
 [RequireComponent(typeof(CharacterController))]
 public class FPSCharacterController : MonoBehaviour
@@ -187,6 +188,7 @@ public class FPSCharacterController : MonoBehaviour
             if (!_wasGrounded)
             {
                 _jumpsUsed = 0;
+                StartCoroutine(JumpLandTilt(-2f, 0.1f));
 
                 if (_isSlamming)
                     ExecuteGroundSlam();
@@ -240,6 +242,8 @@ public class FPSCharacterController : MonoBehaviour
                     _velocity.y = JumpVelocityForHeight(firstJumpHeight);
                     _jumpsUsed  = 1;
 
+
+                    StartCoroutine(JumpLandTilt(2f, 0.1f));
                     if (Stamina.Instance != null)
                         Stamina.Instance.UseJumpStamina();
                 }
@@ -467,4 +471,34 @@ public class FPSCharacterController : MonoBehaviour
     public void SetMaxJumps(int count)          => maxJumps        = Mathf.Max(1, count);
     public void SetFirstJumpHeight(float h)     => firstJumpHeight = Mathf.Max(0.1f, h);
     public void SetAirJumpHeight(float h)       => airJumpHeight   = Mathf.Max(0.1f, h);
+    // Paste this at the bottom of the script, before the last }
+private IEnumerator JumpLandTilt(float tiltAmount, float duration)
+{
+    if (cameraHolder == null) yield break;
+
+    float elapsed = 0f;
+    Quaternion startRot = cameraHolder.localRotation;
+    // This calculates the "bent" rotation
+    Quaternion targetRot = startRot * Quaternion.Euler(tiltAmount, 0, 0);
+
+    // Phase 1: Bend the camera (Tilt Down or Up)
+    while (elapsed < duration)
+    {
+        cameraHolder.localRotation = Quaternion.Slerp(startRot, targetRot, elapsed / duration);
+        elapsed += Time.deltaTime;
+        yield return null;
+    }
+
+    // Phase 2: Smoothly return to the center
+    elapsed = 0f;
+    while (elapsed < duration * 2f)
+    {
+        cameraHolder.localRotation = Quaternion.Slerp(targetRot, startRot, elapsed / (duration * 2f));
+        elapsed += Time.deltaTime;
+        yield return null;
+    }
+
+    // Ensure it's perfectly reset
+    cameraHolder.localRotation = startRot;
+}
 }

@@ -12,6 +12,12 @@ public class Enemy : MonoBehaviour
     // ----------------------------------------------------------------
     // Stats
     // ----------------------------------------------------------------
+
+    [Header("Visuals")]
+private SkinnedMeshRenderer[] _renderers; // Drag the skeleton mesh here
+[SerializeField] private float _flashDuration = 0.1f;
+private Color _originalColor;
+
     [Header("Health")]
     [SerializeField] private float maxHealth = 100f;
     private float _currentHealth;
@@ -67,6 +73,12 @@ public class Enemy : MonoBehaviour
     // ----------------------------------------------------------------
     private void Start()
     {
+      _renderers = GetComponentsInChildren<SkinnedMeshRenderer>();
+
+    if (_renderers.Length == 0)
+    {
+        Debug.LogError($"[Enemy] No SkinnedMeshRenderers found on {gameObject.name}!");
+    }
         _agent.Warp(transform.position);
 
         GameObject playerObj = GameObject.FindWithTag("Player");
@@ -74,6 +86,7 @@ public class Enemy : MonoBehaviour
             _player = playerObj.transform;
 
         animator.SetBool(AnimIsWalking, false);
+
     }
 
     // ----------------------------------------------------------------
@@ -140,11 +153,38 @@ public class Enemy : MonoBehaviour
         if (_isDead) return;
 
         _currentHealth -= amount;
+        if (HitStopManager.Instance != null)
+        HitStopManager.Instance.Stop(0.05f); // 0.05s freeze
 
+        // 2. Trigger Flash Effect
+        StartCoroutine(FlashRed());
         if (_currentHealth <= 0f)
             StartCoroutine(Die());
     }
+    private IEnumerator FlashRed()
+{
+    if (_renderers == null || _renderers.Length == 0) yield break;
 
+    // Create the "Red Tint" instructions
+    MaterialPropertyBlock props = new MaterialPropertyBlock();
+    props.SetColor("_Color", Color.red);
+    props.SetColor("_BaseColor", Color.red); // For URP shaders
+
+    // Turn EVERY part red
+    foreach (var renderer in _renderers)
+    {
+        renderer.SetPropertyBlock(props);
+    }
+    
+    // Wait for the hit-stop duration
+    yield return new WaitForSecondsRealtime(_flashDuration);
+
+    // Reset EVERY part back to normal
+    foreach (var renderer in _renderers)
+    {
+        renderer.SetPropertyBlock(null);
+    }
+}
     // ----------------------------------------------------------------
     // Knockback — only moves transform, never touches NavMeshAgent
     // ----------------------------------------------------------------

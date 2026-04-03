@@ -90,6 +90,8 @@ public class Gun : MonoBehaviour
             StartCoroutine(ReloadRoutine());
             return;
         }
+        WeaponSway sway = GetComponentInParent<WeaponSway>();
+        if (sway != null) sway.ApplyRecoil();
 
         OnGunShoot?.Invoke();
         CurrentAmmo--;
