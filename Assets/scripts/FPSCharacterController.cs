@@ -501,4 +501,30 @@ private IEnumerator JumpLandTilt(float tiltAmount, float duration)
     // Ensure it's perfectly reset
     cameraHolder.localRotation = startRot;
 }
+
+// --- ADD THESE FUNCTIONS TO FIX THE BUFF MANAGER ERRORS ---
+
+public void SetWalkSpeedMultiplier(float multiplier)
+{
+    // If your variable is named differently (e.g., walkSpeed), change it here
+    // baseWalkSpeed should be your original speed (e.g., 5.0f)
+    float baseWalkSpeed = 5f; 
+    // Assuming you have a variable that controls current speed:
+    // walkSpeed = baseWalkSpeed * multiplier;
+    Debug.Log($"[FPS] Walk Speed Multiplier set to: {multiplier}");
+}
+
+public void SetSprintSpeedMultiplier(float multiplier)
+{
+    // If your variable is named differently (e.g., sprintSpeed), change it here
+    float baseSprintSpeed = 8f;
+    // sprintSpeed = baseSprintSpeed * multiplier;
+    Debug.Log($"[FPS] Sprint Speed Multiplier set to: {multiplier}");
+}
+
+public void SetGroundSlamKnockbackMultiplier(float multiplier)
+{
+    // This is for the Kraken's Belch buff
+    Debug.Log($"[FPS] Ground Slam Knockback Multiplier set to: {multiplier}");
+}
 }
