@@ -169,32 +169,32 @@ public class Enemy : MonoBehaviour
         _isKnockedBack = false;
     }
 
-    private IEnumerator Die()
-    {
-        _isDead = true;
-        _isAttacking = false;
-        _agent.isStopped = true;
-        _agent.velocity = Vector3.zero;
+private IEnumerator Die()
+{
+    _isDead      = true;
+    _isAttacking = false;
 
-        // 1. Shatter Effect
-        if (boneParticlePrefab != null)
-        {
-            Instantiate(boneParticlePrefab, transform.position + Vector3.up * 0.5f, Quaternion.identity);
-        }
+    _agent.isStopped = true;
+    _agent.velocity  = Vector3.zero;
 
-        animator.SetBool(AnimIsWalking, false);
-        yield return null;
-        
-        _agent.enabled = false;
-        animator.Play("Death");
+    animator.SetBool(AnimIsWalking, false);
 
-        WaveManager.Instance.ReportEnemyDeath();
-        RollDrop();
+    yield return null;
 
-        yield return new WaitForSeconds(deathAnimationDuration);
-        StopEnemySound(); 
-        Destroy(gameObject);
-    }
+    _agent.enabled = false;
+    animator.Play("Death");
+
+    WaveManager.Instance.ReportEnemyDeath();
+
+    // register kill for buff system
+    if (KillTracker.Instance != null)
+        KillTracker.Instance.RegisterKill();
+
+    RollDrop();
+
+    yield return new WaitForSeconds(deathAnimationDuration);
+    Destroy(gameObject);
+}
 
     private void RollDrop()
     {

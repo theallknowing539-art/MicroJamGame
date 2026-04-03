@@ -2,6 +2,7 @@ using UnityEngine;
 using System;
 using System.Collections;
 using UnityEngine.Audio;
+using Unity.VisualScripting;
 
 public class DrunkManager : MonoBehaviour
 {
@@ -45,6 +46,8 @@ public class DrunkManager : MonoBehaviour
 
     public float CurrentInstability => currentInstability;
     public float MaxInstability => maxInstability;
+    
+    [SerializeField] private GameObject player;
     public bool IsHangover { get; private set; } = false;
 
     private void Awake()
@@ -124,7 +127,8 @@ public class DrunkManager : MonoBehaviour
     {
         IsHangover = true;
         OnHangoverStarted?.Invoke();
-
+        //disable fps controller
+        player.GetComponent<FPSCharacterController>().enabled = false;
         // Play the Cluck!
         if (_audioSource != null && hangoverSFX != null)
         {
@@ -134,6 +138,9 @@ public class DrunkManager : MonoBehaviour
         UpdateAudioWarp(1f); // Max distortion during hangover
 
         yield return new WaitForSeconds(hangoverDuration);
+        //enable fps controller
+        player.GetComponent<FPSCharacterController>().enabled = true;
+
 
         // RESET LOGIC: Drop to 40% so the player can trigger it again
         currentInstability = maxInstability * 0.4f;
