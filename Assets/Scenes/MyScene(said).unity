@@ -1470,13 +1470,13 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   hangoverSFX: {fileID: 0}
-  hangoverVolume: 1
+  hangoverVolume: 0.495
   maxInstability: 100
   currentInstability: 0
   hangoverThreshold: 70
   hangoverDuration: 3
   instabilityDecayRate: 2
-  mainMixer: {fileID: 0}
+  mainMixer: {fileID: 24100000, guid: 4a344c50848c9442e92d8cb3a0d86d27, type: 2}
   pitchParam: MyDrunkPitch
   reverbParam: DrunkReverb
   soberVerticalAmplitude: 0.05
