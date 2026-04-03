@@ -17,8 +17,8 @@ public class BuffManager : MonoBehaviour
     [SerializeField] private int cardsShownCount = 3;
 
     // events
-    public event Action<List<BuffData>, int> OnCardSelectionStarted; // (cards, level)
-    public event Action<BuffData>            OnBuffApplied;
+    // public event Action<List<BuffData>, int> OnCardSelectionStarted; // (cards, level)
+    // public event Action<BuffData>            OnBuffApplied;
 
     // active buffs the player has chosen
     private List<BuffData> _activeBuffs = new List<BuffData>();
@@ -34,16 +34,6 @@ public class BuffManager : MonoBehaviour
     }
 
     // ----------------------------------------------------------------
-    private void OnEnable()
-    {
-        KillTracker.Instance.OnLevelThresholdReached += ShowCardSelection;
-    }
-
-    private void OnDisable()
-    {
-        if (KillTracker.Instance != null)
-            KillTracker.Instance.OnLevelThresholdReached -= ShowCardSelection;
-    }
 
     // ----------------------------------------------------------------
     public void ShowCardSelection(int level)
@@ -66,7 +56,7 @@ public class BuffManager : MonoBehaviour
         Time.timeScale = 0f;
 
         // fire event so UI can show the cards
-        OnCardSelectionStarted?.Invoke(offered, level);
+        // OnCardSelectionStarted?.Invoke(offered, level);
     }
 
     // ----------------------------------------------------------------
@@ -80,7 +70,7 @@ public class BuffManager : MonoBehaviour
 
         ApplyBuff(buff, _currentOfferLevel);
 
-        OnBuffApplied?.Invoke(buff);
+        // OnBuffApplied?.Invoke(buff);
 
         // unfreeze game
         Time.timeScale = 1f;
