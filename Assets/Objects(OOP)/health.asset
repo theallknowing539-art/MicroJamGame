@@ -12,10 +12,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 079b547b80015d74c85493f3adc25be1, type: 3}
   m_Name: health
   m_EditorClassIdentifier: 
-  buffName: 
-  description: 
+  buffName: Eternal Grog
+  description: boosts health recovery of the grog
   icon: {fileID: 0}
-  buffType: 0
+  buffType: 2
   levelValues:
   - 0.05
   - 0.1
