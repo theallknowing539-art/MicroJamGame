@@ -154,12 +154,15 @@ private Color _originalColor;
 
         _currentHealth -= amount;
         if (HitStopManager.Instance != null)
-        HitStopManager.Instance.Stop(0.05f); // 0.05s freeze
+         HitStopManager.Instance.Stop(0.06f); 
 
-        // 2. Trigger Flash Effect
+        // Trigger Flash Effect
         StartCoroutine(FlashRed());
+
         if (_currentHealth <= 0f)
             StartCoroutine(Die());
+
+        
     }
     private IEnumerator FlashRed()
 {
@@ -235,7 +238,8 @@ private Color _originalColor;
         _agent.velocity  = Vector3.zero;
 
         animator.SetBool(AnimIsWalking, false);
-
+        Time.timeScale = 0.4f; // Slow down to 40% speed
+        Time.fixedDeltaTime = 0.02f * Time.timeScale; // K
         // wait one frame before playing death
         yield return null;
 
@@ -246,7 +250,8 @@ private Color _originalColor;
         RollDrop();
 
         yield return new WaitForSeconds(deathAnimationDuration);
-
+        Time.timeScale = 1f;
+        Time.fixedDeltaTime = 0.02f;
         Destroy(gameObject);
     }
 

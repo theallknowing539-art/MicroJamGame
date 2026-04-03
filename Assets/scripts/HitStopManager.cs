@@ -1,28 +1,40 @@
-using UnityEngine;
 using System.Collections;
+using UnityEngine;
 
 public class HitStopManager : MonoBehaviour
 {
+    public static HitStopManager Instance { get; private set; }
 
-    
-    public static HitStopManager Instance;
+    private bool _isWaiting = false;
+
     private void Awake()
     {
+        if (Instance != null) { Destroy(gameObject); return; }
         Instance = this;
     }
 
     public void Stop(float duration)
     {
+        if (_isWaiting) return;
         StartCoroutine(Wait(duration));
     }
 
-    IEnumerator Wait(float duration)
+    private IEnumerator Wait(float duration)
     {
-        Time.timeScale = 0.0f; // This is what freezes the game!
+        _isWaiting = true;
         
-        // Wait using "Realtime" because the game clock is now paused
+        // Record the current time scale
+        float originalTimeScale = Time.timeScale;
+        
+        // Freeze the game
+        Time.timeScale = 0.0f;
+        
+        // Wait for REAL seconds (because Time.timeScale is 0!)
         yield return new WaitForSecondsRealtime(duration);
         
-        Time.timeScale = 1.0f; // This unfreezes the game
+        // Unfreeze
+        Time.timeScale = originalTimeScale;
+        
+        _isWaiting = false;
     }
 }
