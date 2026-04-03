@@ -59,6 +59,26 @@ public class DrunkManager : MonoBehaviour
             // update headbob every frame as instability decays
             UpdateDrunkBob();
         }
+
+        // === QUICK TEST CONTROLS (remove later if you want) ===
+        if (Input.GetKeyDown(KeyCode.Space))
+        {
+            RaiseInstability(25f);
+            Debug.Log("Drunk +25 → Current: " + currentInstability);
+        }
+
+        if (Input.GetKeyDown(KeyCode.R))
+        {
+            currentInstability = 0f;
+            OnInstabilityChanged?.Invoke(currentInstability, maxInstability);
+            Debug.Log("Reset to sober");
+        }
+
+        if (Input.GetKeyDown(KeyCode.H) && currentInstability >= hangoverThreshold)
+        {
+            StartCoroutine(HangoverRoutine());
+            Debug.Log("Hangover triggered!");
+        }
     }
 
     // ----------------------------------------------------------------
@@ -89,7 +109,8 @@ public class DrunkManager : MonoBehaviour
 
         // t goes from 0 (sober) to 1 (fully drunk)
         float t = currentInstability / maxInstability;
-
+        //make movement slightly slower when very drunk
+        float movementMultiplier = Mathf.Lerp(1f, 0.75f, t);
         // interpolate all bob values between sober and drunk
         FPSCharacterController.HeadbobProfile drunkProfile = new FPSCharacterController.HeadbobProfile
         {
@@ -114,25 +135,30 @@ public class DrunkManager : MonoBehaviour
 
     // ----------------------------------------------------------------
     private IEnumerator HangoverRoutine()
-    {
-        IsHangover = true;
-        OnHangoverStarted?.Invoke();
+{
+    IsHangover = true;
+    OnHangoverStarted?.Invoke();
 
-        if (FPSCharacterController.Instance != null)
-            FPSCharacterController.Instance.SetMovementLocked(true);
+    // === REMOVED MOVEMENT LOCK ===
+    // We no longer lock movement so player can still walk and shoot
 
-        yield return new WaitForSeconds(hangoverDuration);
+    Debug.Log("Hangover started - Player can still move and shoot");
 
-        currentInstability = hangoverThreshold * 0.4f;
-        OnInstabilityChanged?.Invoke(currentInstability, maxInstability);
+    yield return new WaitForSeconds(hangoverDuration);
 
-        // reset bob back towards sober after hangover
-        UpdateDrunkBob();
+    // Reduce instability after hangover
+    currentInstability = hangoverThreshold * 0.4f;
+    OnInstabilityChanged?.Invoke(currentInstability, maxInstability);
 
-        IsHangover = false;
-        OnHangoverEnded?.Invoke();
+    // Reset headbob back toward sober
+    UpdateDrunkBob();
 
-        if (FPSCharacterController.Instance != null)
-            FPSCharacterController.Instance.SetMovementLocked(false);
-    }
+    IsHangover = false;
+    OnHangoverEnded?.Invoke();
+
+    // === REMOVED UNLOCK ===
+    // No need to unlock because we never locked it
+
+    Debug.Log("Hangover ended");
+}
 }
