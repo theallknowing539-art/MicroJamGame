@@ -172,21 +172,45 @@ public class GameUI : MonoBehaviour
     // --- DRUNK DIALOGUE LOGIC ---
 
     private void HandleDrunkDialogue(float current, float max)
+{
+    // Calculate the percentage (0.0 to 1.0)
+    float percentage = current / max; 
+    string slurredText = "";
+
+    // 1. PRIORITY: Check for Hangover first (The "BAWK" moment)
+    // We check Instance.IsHangover to see if the DrunkManager is currently in the "Locked" state
+    if (DrunkManager.Instance != null && DrunkManager.Instance.IsHangover) 
     {
-        float percentage = current / max; 
-        string slurredText = "";
-
-        if (percentage >= 1.0f) slurredText = "...";
-        else if (percentage >= 0.8f) slurredText = "I'M FINE TRUST ME";
-        else if (percentage >= 0.6f) slurredText = "wha'z goin on...";
-        else if (percentage >= 0.3f) slurredText = "*hic*";
-
-        if (!string.IsNullOrEmpty(slurredText))
-        {
-            StopAllCoroutines(); 
-            StartCoroutine(ShowSubtitle(slurredText));
-        }
+        slurredText = "BAWK?! *hic*"; 
     }
+    // 2. Threshold: 100% (Passed out/Speechless)
+    else if (percentage >= 1.0f) 
+    {
+        slurredText = "...";
+    }
+    // 3. Threshold: 80% (Extreme Denial)
+    else if (percentage >= 0.8f) 
+    {
+        slurredText = "I'M FINE TRUST ME";
+    }
+    // 4. Threshold: 60% (Confusion)
+    else if (percentage >= 0.6f) 
+    {
+        slurredText = "wha'z goin on...";
+    }
+    // 5. Threshold: 30% (The first sign)
+    else if (percentage >= 0.3f) 
+    {
+        slurredText = "*hic*";
+    }
+
+    // Only trigger the coroutine if we actually have text to show
+    if (!string.IsNullOrEmpty(slurredText))
+    {
+        StopAllCoroutines(); 
+        StartCoroutine(ShowSubtitle(slurredText));
+    }
+}
 
     private IEnumerator ShowSubtitle(string text)
     {

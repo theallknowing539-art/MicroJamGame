@@ -1,17 +1,24 @@
 using UnityEngine;
 using System;
 using System.Collections;
-using UnityEngine.Audio; // MUST HAVE THIS FOR MIXER
+using UnityEngine.Audio;
 
 public class DrunkManager : MonoBehaviour
 {
     public static DrunkManager Instance { get; private set; }
 
+    // Private Audio Reference
+    private AudioSource _audioSource;
+
+    [Header("Hangover Audio")]
+    [SerializeField] private AudioClip hangoverSFX; // Drag your chicken cluck / horn here
+    [Range(0f, 1f)] [SerializeField] private float hangoverVolume = 1.0f;
+
     [Header("Instability")]
     [SerializeField] private float maxInstability = 100f;
     [SerializeField] private float currentInstability = 0f;
 
-    [Header("Hangover")]
+    [Header("Hangover Settings")]
     [SerializeField] private float hangoverThreshold = 80f;
     [SerializeField] private float hangoverDuration = 3f;
     [SerializeField] private float instabilityDecayRate = 2f;
@@ -19,7 +26,6 @@ public class DrunkManager : MonoBehaviour
     [Header("Audio Warp Settings")]
     [SerializeField] private AudioMixer mainMixer;
     [SerializeField] private string pitchParam = "MyDrunkPitch";
-    // If you add a Reverb Send to your mixer, expose it and name it here:
     [SerializeField] private string reverbParam = "DrunkReverb"; 
 
     [Header("Drunk Headbob — Sober")]
@@ -32,7 +38,7 @@ public class DrunkManager : MonoBehaviour
     [SerializeField] private float drunkVerticalFrequency = 4f;
     [SerializeField] private float drunkTiltAmplitude = 8f;
 
-    // events
+    // Events
     public static event System.Action<float, float> OnInstabilityChanged;
     public event Action OnHangoverStarted;
     public event Action OnHangoverEnded;
@@ -45,10 +51,15 @@ public class DrunkManager : MonoBehaviour
     {
         if (Instance != null) { Destroy(gameObject); return; }
         Instance = this;
+
+        // Initialize Audio Source
+        _audioSource = GetComponent<AudioSource>();
+        if (_audioSource == null) _audioSource = gameObject.AddComponent<AudioSource>();
     }
 
     private void Update()
     {
+        // Only decay if we are sober enough to move
         if (currentInstability > 0f && !IsHangover)
         {
             currentInstability = Mathf.Clamp(
@@ -56,7 +67,6 @@ public class DrunkManager : MonoBehaviour
                 0f, maxInstability
             );
             OnInstabilityChanged?.Invoke(currentInstability, maxInstability);
-
             UpdateDrunkEffects();
         }
     }
@@ -70,14 +80,6 @@ public class DrunkManager : MonoBehaviour
         CheckHangover();
     }
 
-    public void LowerInstability(float amount)
-    {
-        currentInstability = Mathf.Clamp(currentInstability - amount, 0f, maxInstability);
-        OnInstabilityChanged?.Invoke(currentInstability, maxInstability);
-        UpdateDrunkEffects();
-    }
-
-    // Combined function to handle Visual (Bob) and Audio (Pitch)
     private void UpdateDrunkEffects()
     {
         float t = currentInstability / maxInstability;
@@ -106,13 +108,8 @@ public class DrunkManager : MonoBehaviour
     private void UpdateAudioWarp(float t)
     {
         if (mainMixer == null) return;
-
-        // 1. Pitch Bending: 1.0 (Normal) to 0.85 (Slow/Deep)
         float targetPitch = Mathf.Lerp(1.0f, 0.85f, t);
         mainMixer.SetFloat(pitchParam, targetPitch);
-
-        // 2. Reverb: -80dB (Silent) to 0dB (Full Echo)
-        // Note: You must add a Reverb effect to your Mixer for this!
         float reverbLevel = Mathf.Lerp(-80f, 0f, t);
         mainMixer.SetFloat(reverbParam, reverbLevel);
     }
@@ -127,13 +124,19 @@ public class DrunkManager : MonoBehaviour
     {
         IsHangover = true;
         OnHangoverStarted?.Invoke();
+
+        // Play the Cluck!
+        if (_audioSource != null && hangoverSFX != null)
+        {
+            _audioSource.PlayOneShot(hangoverSFX, hangoverVolume);
+        }
         
-        // During hangover, max out the warp!
-        UpdateAudioWarp(1f);
+        UpdateAudioWarp(1f); // Max distortion during hangover
 
         yield return new WaitForSeconds(hangoverDuration);
 
-        currentInstability = hangoverThreshold * 0.4f;
+        // RESET LOGIC: Drop to 40% so the player can trigger it again
+        currentInstability = maxInstability * 0.4f;
         OnInstabilityChanged?.Invoke(currentInstability, maxInstability);
 
         UpdateDrunkEffects();
