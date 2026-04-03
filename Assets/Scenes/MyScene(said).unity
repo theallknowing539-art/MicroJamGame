@@ -1469,6 +1469,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7c77023ebe163dc4db8a55d2ef62549b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  hangoverSFX: {fileID: 8300000, guid: b674e42b1788045638c3a682b097980b, type: 3}
+  hangoverVolume: 1
   maxInstability: 100
   currentInstability: 0
   hangoverThreshold: 70
