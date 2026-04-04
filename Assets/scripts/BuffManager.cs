@@ -33,27 +33,22 @@ public class BuffManager : MonoBehaviour
     }
 
     public void TriggerBuffSelection(int currentWave)
-    {
-        // 1. FILTER: Find all cards that are unlocked up to this wave
-        // (e.g., At wave 3, you can see cards from wave 1, 2, and 3)
-        List<BuffData> eligiblePool = allBuffs.FindAll(b => b.requiredWave == currentWave);
-        // 2. ERROR CHECK: Ensure we actually have cards to show
-        if (eligiblePool.Count == 0)
+{
+    // 1. Filter the cards
+    List<BuffData> eligiblePool = allBuffs.FindAll(b => b.requiredWave == currentWave);
+
+    if (eligiblePool.Count == 0)
     {
         Debug.LogWarning($"[BuffManager] No cards found for Wave {currentWave}! Falling back to Wave 1.");
         eligiblePool = allBuffs.FindAll(b => b.requiredWave == 1);
     }
 
+    // --- MOVE THE DEFINITION UP HERE ---
     List<BuffData> selectedCards = new List<BuffData>();
     List<BuffData> tempPool = new List<BuffData>(eligiblePool);
-        // We create a temporary copy of the pool so we don't pick the same card twice
-        
 
-        // 3. PICK 3 CARDS: 
-        // If the pool has fewer than 3 cards, it will just show whatever is available.
-        int targetCount = 3; 
-
-    for (int i = 0; i < targetCount; i++)
+    // 2. Pick 3 unique cards
+    for (int i = 0; i < 3; i++)
     {
         if (tempPool.Count > 0)
         {
@@ -63,15 +58,19 @@ public class BuffManager : MonoBehaviour
         }
     }
 
-        // 4. UI AND PAUSE
-        Time.timeScale = 0f;
+    // --- NOW CALL FREEZE (After selectedCards is ready) ---
+    if (FPSCharacterController.Instance != null)
+    {
+        FPSCharacterController.Instance.FreezePlayer(true);
+    }
+
+    // 3. UI AND PAUSE
+    Time.timeScale = 0f;
     OnCardSelectionStarted?.Invoke(selectedCards, currentWave);
     
     Cursor.lockState = CursorLockMode.None;
     Cursor.visible = true;
-        
-        Debug.Log($"[BuffManager] Displaying {selectedCards.Count} random cards out of {eligiblePool.Count} eligible.");
-    }
+}
 
     public void ApplyBuff(BuffData selectedBuff)
     {
@@ -86,5 +85,14 @@ public class BuffManager : MonoBehaviour
         
         // Notify PlayerBuffs and other systems
         OnBuffApplied?.Invoke(selectedBuff);
+
+        if (FPSCharacterController.Instance != null)
+        FPSCharacterController.Instance.FreezePlayer(false);
+
+    Time.timeScale = 1f;
+    Cursor.lockState = CursorLockMode.Locked;
+    Cursor.visible = false;
+    
+    OnBuffApplied?.Invoke(selectedBuff);
     }
 }

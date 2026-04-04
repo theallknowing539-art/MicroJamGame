@@ -122,15 +122,18 @@ public class FPSCharacterController : MonoBehaviour
     }
 
     private void Update()
-    {
-        HandleMouseLook();
-        HandleMovement();
-        HandleCrouch();
-        HandleHeadbob();
+{
+    // If movement is locked (Menu is open), do NOTHING
+    if (_movementLocked) return; 
 
-        if (weaponSway != null)
-            weaponSway.SetMovementState(_isMoving, _isSprinting, _isCrouching);
-    }
+    HandleMouseLook();
+    HandleMovement();
+    HandleCrouch();
+    HandleHeadbob();
+
+    if (weaponSway != null)
+        weaponSway.SetMovementState(_isMoving, _isSprinting, _isCrouching);
+}
 
     private void HandleMouseLook()
     {
@@ -348,7 +351,29 @@ public class FPSCharacterController : MonoBehaviour
     public bool IsSprinting => _isSprinting;
     public void SetMovementLocked(bool locked) => _movementLocked = locked;
     public void SetCursorLock(bool locked) { Cursor.lockState = locked ? CursorLockMode.Locked : CursorLockMode.None; Cursor.visible = !locked; }
+    public void FreezePlayer(bool freeze)
+{
+    _movementLocked = freeze;
     
+    if (freeze)
+{
+    _velocity = Vector3.zero;
+    
+    // SNAP TO GROUND (Optional):
+    // This moves the player down to the nearest floor before freezing
+    if (Physics.Raycast(transform.position, Vector3.down, out RaycastHit hit, 10f))
+    {
+        transform.position = hit.point + new Vector3(0, standingHeight / 2f, 0);
+    }
+
+    if (_cc != null) _cc.enabled = false;
+}
+    else
+    {
+        // 4. Re-enable when the menu closes
+        if (_cc != null) _cc.enabled = true;
+    }
+} 
     // API Buff placeholders for compatibility
     public void SetWalkSpeedMultiplier(float multiplier)
 {
