@@ -48,9 +48,11 @@ public class GameUI : MonoBehaviour
         yield return null;
 
         if (PlayerHealth.Instance != null)
+        {
             PlayerHealth.Instance.OnHealthChanged += HandleHealthChanged;
+            // Subscribe to Shield if you add a shield bar later
+        }
 
-        // FIXED: Subscribing to static event (No .Instance)
         DrunkManager.OnInstabilityChanged += HandleInstabilityChanged;
         DrunkManager.OnInstabilityChanged += HandleDrunkDialogue;
 
@@ -76,7 +78,6 @@ public class GameUI : MonoBehaviour
         if (PlayerHealth.Instance != null)
             PlayerHealth.Instance.OnHealthChanged -= HandleHealthChanged;
 
-        // FIXED: Unsubscribing from static event (No .Instance)
         DrunkManager.OnInstabilityChanged -= HandleInstabilityChanged;
         DrunkManager.OnInstabilityChanged -= HandleDrunkDialogue;
 
@@ -95,14 +96,20 @@ public class GameUI : MonoBehaviour
             _gun.OnAmmoChanged -= HandleAmmoChanged;
     }
 
+    // --- UPDATED HEALTH LOGIC ---
     private void HandleHealthChanged(float current, float max)
+{
+    if (healthSlider != null)
     {
-        if (healthSlider != null)
-        {
-            healthSlider.maxValue = max;
-            healthSlider.value    = current;
-        }
+        // 1. Tell the slider what the NEW "100%" is (e.g. 105)
+        healthSlider.maxValue = max; 
+        
+        // 2. Tell the slider where the "fill" should be (e.g. 105)
+        healthSlider.value = current;
+
+        Debug.Log($"UI Updated: Slider is now {current}/{max}");
     }
+}
 
     private void HandleInstabilityChanged(float current, float max)
     {
@@ -116,10 +123,8 @@ public class GameUI : MonoBehaviour
     private void HandleAmmoChanged()
     {
         if (_gun == null) return;
-
         if (ammoCurrentText != null)
             ammoCurrentText.text = _gun.IsReloading ? "..." : _gun.CurrentAmmo.ToString();
-
         if (ammoReserveText != null)
             ammoReserveText.text = $"/ {_gun.ReserveAmmo}";
     }
@@ -127,7 +132,6 @@ public class GameUI : MonoBehaviour
     private void HandleInventoryChanged()
     {
         if (rumBottleData == null || Inventory.Instance == null) return;
-
         int count = Inventory.Instance.GetCount(rumBottleData);
         if (bottleCountText != null) bottleCountText.text = $"x{count}";
         if (bottleIcon != null) bottleIcon.enabled = count > 0;
@@ -170,59 +174,34 @@ public class GameUI : MonoBehaviour
     }
 
     // --- DRUNK DIALOGUE LOGIC ---
-
     private void HandleDrunkDialogue(float current, float max)
-{
-    // Calculate the percentage (0.0 to 1.0)
-    float percentage = current / max; 
-    string slurredText = "";
+    {
+        float percentage = current / max; 
+        string slurredText = "";
 
-    // 1. PRIORITY: Check for Hangover first (The "BAWK" moment)
-    // We check Instance.IsHangover to see if the DrunkManager is currently in the "Locked" state
-    if (DrunkManager.Instance != null && DrunkManager.Instance.IsHangover) 
-    {
-        slurredText = "BAWK?! *hic*"; 
-    }
-    // 2. Threshold: 100% (Passed out/Speechless)
-    else if (percentage >= 1.0f) 
-    {
-        slurredText = "...";
-    }
-    // 3. Threshold: 80% (Extreme Denial)
-    else if (percentage >= 0.8f) 
-    {
-        slurredText = "I'M FINE TRUST ME";
-    }
-    // 4. Threshold: 60% (Confusion)
-    else if (percentage >= 0.6f) 
-    {
-        slurredText = "wha'z goin on...";
-    }
-    // 5. Threshold: 30% (The first sign)
-    else if (percentage >= 0.3f) 
-    {
-        slurredText = "*hic*";
-    }
+        if (DrunkManager.Instance != null && DrunkManager.Instance.IsHangover) 
+            slurredText = "BAWK?! *hic*"; 
+        else if (percentage >= 1.0f) 
+            slurredText = "...";
+        else if (percentage >= 0.8f) 
+            slurredText = "I'M FINE TRUST ME";
+        else if (percentage >= 0.6f) 
+            slurredText = "wha'z goin on...";
+        else if (percentage >= 0.3f) 
+            slurredText = "*hic*";
 
-    // Only trigger the coroutine if we actually have text to show
-    if (!string.IsNullOrEmpty(slurredText))
-    {
-        StopAllCoroutines(); 
-        StartCoroutine(ShowSubtitle(slurredText));
+        if (!string.IsNullOrEmpty(slurredText))
+        {
+            StopAllCoroutines(); 
+            StartCoroutine(ShowSubtitle(slurredText));
+        }
     }
-}
 
     private IEnumerator ShowSubtitle(string text)
     {
         if (subtitleText == null) yield break;
-
         subtitleText.text = text;
         subtitleText.gameObject.SetActive(true);
-        subtitleText.transform.localScale = Vector3.one * 1.2f; 
-        
-        yield return new WaitForSeconds(0.1f);
-        subtitleText.transform.localScale = Vector3.one; 
-        
         yield return new WaitForSeconds(subtitleDisplayTime);
         subtitleText.text = "";
     }
