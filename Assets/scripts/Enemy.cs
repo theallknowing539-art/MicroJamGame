@@ -112,26 +112,55 @@ public class Enemy : MonoBehaviour
         if (!_isDead) _agent.isStopped = false;
     }
 
-    public void TakeDamage(float amount)
-    {
-        if (_isDead) return;
-        _currentHealth -= amount;
+   public void TakeDamage(float amount)
+{
+    if (_isDead) return;
+    _currentHealth -= amount;
 
-        if (_currentHealth <= 0f) StartCoroutine(Die());
-        
-        StartCoroutine(FlashRed());
-        if (HitStopManager.Instance != null) HitStopManager.Instance.Stop(0.03f);
-        if (CameraShake.Instance != null) CameraShake.Instance.Shake(0.15f);
+    // 1. HIT STOP (Freeze Frame)
+    // We use the 0.08f version for a nice solid "crunch"
+    if (HitStopManager.Instance != null) 
+        HitStopManager.Instance.Stop(0.15f); // 0.15 is longer than the enemy's 0.08
+
+    if (CameraShake.Instance != null)
+        CameraShake.Instance.HitShake(0.6f, 0.3f);CameraShake.Instance.HitShake(0.5f, 0.2f);
+
+    // 3. RED FLASH 
+    // Stop any existing flash first, then start ONE new one
+    StopCoroutine("FlashRed"); 
+    StartCoroutine("FlashRed");
+
+    // 4. SOUND
+    if (_audioSource != null && hitSound != null)
+        _audioSource.PlayOneShot(hitSound, hitVolume);
+
+    // 5. DEATH CHECK
+    if (_currentHealth <= 0f) 
+    {
+        StartCoroutine(Die());
     }
+}
 
     private IEnumerator FlashRed()
+{
+    MaterialPropertyBlock props = new MaterialPropertyBlock();
+    
+    // 1. Set to RED
+    props.SetColor("_Color", Color.red);
+    foreach (var r in _renderers) 
     {
-        MaterialPropertyBlock props = new MaterialPropertyBlock();
-        props.SetColor("_Color", Color.red);
-        foreach (var r in _renderers) r.SetPropertyBlock(props);
-        yield return new WaitForSecondsRealtime(_flashDuration);
-        foreach (var r in _renderers) r.SetPropertyBlock(null);
+        if (r != null) r.SetPropertyBlock(props);
     }
+
+    // 2. Wait (Use Realtime so it works during HitStop!)
+    yield return new WaitForSecondsRealtime(_flashDuration);
+
+    // 3. Reset to ORIGINAL
+    foreach (var r in _renderers) 
+    {
+        if (r != null) r.SetPropertyBlock(null);
+    }
+}
 
     private IEnumerator Die()
     {

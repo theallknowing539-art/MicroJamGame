@@ -1,5 +1,6 @@
 using UnityEngine;
 using System;
+using System.Collections;
 
 public class PlayerHealth : MonoBehaviour
 {
@@ -36,39 +37,61 @@ public class PlayerHealth : MonoBehaviour
     }
 
     public void TakeDamage(float incomingDamage)
+{
+    if (IsDead || buffStats == null) return;
+
+    // --- STEP 1: IRON RIBS (Damage Reduction) ---
+    float finalDamage = incomingDamage * (1f - buffStats.damageReduction);
+
+    // --- STEP 2: EFFECTS (The "Juice") ---
+    // We trigger these IMMEDIATELY so the player feels the impact
+    if (HitStopManager.Instance != null) 
+        HitStopManager.Instance.Stop(0.12f); // Freeze time briefly
+
+    if (CameraShake.Instance != null)
+        CameraShake.Instance.HitShake(0.6f, 0.25f); // Stronger shake than enemies
+
+    // --- STEP 3: BRINE BARRIER (Shield Logic) ---
+    if (buffStats.shieldCapacity > 0)
     {
-        if (IsDead || buffStats == null) return;
-
-        Debug.Log($"[IRON RIBS TEST] Raw Damage: {incomingDamage} | Reduction: {buffStats.damageReduction * 100}% | Final Damage: {incomingDamage * (1f - buffStats.damageReduction)}");
-
-
-        // --- STEP 1: IRON RIBS (Damage Reduction) ---
-        // If reduction is 0.2 (20%), we multiply incoming damage by 0.8 (80%)
-        float finalDamage = incomingDamage * (1f - buffStats.damageReduction);
-
-        // --- STEP 2: BRINE BARRIER (Shield) ---
-        if (buffStats.shieldCapacity > 0)
+        float excessDamage = finalDamage - buffStats.shieldCapacity;
+        buffStats.shieldCapacity -= finalDamage;
+        
+        if (buffStats.shieldCapacity <= 0) 
         {
-            buffStats.shieldCapacity -= finalDamage;
-            
-            if (buffStats.shieldCapacity < 0) 
-            {
-                // Shield depleted, apply remaining damage to health
-                buffStats.currentHealth += buffStats.shieldCapacity; 
-                buffStats.shieldCapacity = 0;
-            }
+            buffStats.shieldCapacity = 0;
+            // Apply leftover damage to health if shield broke
+            if (excessDamage > 0) buffStats.currentHealth -= excessDamage;
         }
-        else
-        {
-            // --- STEP 3: HEALTH ---
-            buffStats.currentHealth -= finalDamage;
-        }
-
-        buffStats.currentHealth = Mathf.Clamp(buffStats.currentHealth, 0f, buffStats.maxHealth);
-        RefreshUI();
-
-        if (buffStats.currentHealth <= 0f) Die();
     }
+    else
+    {
+        // --- STEP 4: HEALTH ---
+        buffStats.currentHealth -= finalDamage;
+    }
+
+    // --- STEP 5: CLEANUP & UI ---
+    buffStats.currentHealth = Mathf.Clamp(buffStats.currentHealth, 0f, buffStats.maxHealth);
+    RefreshUI();
+
+    // Trigger Red Flash for player (UI overlay or screen effect)
+    StartCoroutine(FlashRed()); 
+
+    if (buffStats.currentHealth <= 0f) Die();
+}
+
+private IEnumerator FlashRed()
+{
+    // If you have a UI Image for damage, enable it here
+    // damageImage.enabled = true;
+    
+    Debug.Log("Player Screen Flash!"); 
+    
+    // Use Realtime so it works during HitStop
+    yield return new WaitForSecondsRealtime(0.1f);
+    
+    // damageImage.enabled = false;
+}
 
     public void Heal(float amount)
     {
