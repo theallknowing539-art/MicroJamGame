@@ -9,7 +9,7 @@ public class Enemy : MonoBehaviour
     [SerializeField] private float _flashDuration = 0.05f;
 
     [Header("Health")]
-    [SerializeField] private float maxHealth = 40f;
+    [SerializeField] private float maxHealth = 100f;
     private float _currentHealth;
 
     [Header("Movement")]
@@ -123,7 +123,7 @@ public class Enemy : MonoBehaviour
         HitStopManager.Instance.Stop(0.15f); // 0.15 is longer than the enemy's 0.08
 
     if (CameraShake.Instance != null)
-        CameraShake.Instance.HitShake(0.6f, 0.3f);CameraShake.Instance.HitShake(0.5f, 0.2f);
+        CameraShake.Instance.HitShake(0.6f, 0.3f);
 
     // 3. RED FLASH 
     // Stop any existing flash first, then start ONE new one
@@ -168,7 +168,10 @@ public class Enemy : MonoBehaviour
         _agent.enabled = false;
         if (boneParticlePrefab != null) Instantiate(boneParticlePrefab, transform.position + Vector3.up, Quaternion.identity);
         
-        WaveManager.Instance.ReportEnemyDeath();
+        if (WaveManager.Instance != null)
+        {
+             WaveManager.Instance.ReportEnemyDeath();
+        }
         RollDrop();
         animator.Play("Death");
         yield return new WaitForSeconds(deathAnimationDuration);
@@ -190,7 +193,14 @@ public class Enemy : MonoBehaviour
         animator.Play("Attack");
         yield return new WaitForSeconds(windUpDuration);
         if (!_isDead && Vector3.Distance(transform.position, _player.position) <= attackRange)
-            PlayerHealth.Instance.TakeDamage(attackDamage);
+           if (PlayerHealth.Instance != null)
+            {
+                PlayerHealth.Instance.TakeDamage(attackDamage);
+            }
+            else 
+            {   
+                Debug.LogWarning("Enemy is trying to hit player, but PlayerHealth.Instance is missing!");
+            }
         _isAttacking = false;
     }
 }
