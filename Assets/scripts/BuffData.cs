@@ -2,23 +2,12 @@ using UnityEngine;
 
 public enum BuffType
 {
-    [InspectorName("Krakens Belch")]
-    KnockbackForce,
-
-    [InspectorName("Scurvy Strike")]
-    AttackDamage,
-
-    [InspectorName("Eternal Grog")]
-    HPBoost,
-
-    [InspectorName("Boarding Dash")]
-    MovementSpeed,
-
-    [InspectorName("Brine Barrier")]
-    ShieldCapacity,
-
-    [InspectorName("Iron Ribs")]
-    DamageReduction
+    [InspectorName("Krakens Belch")] KnockbackForce,
+    [InspectorName("Scurvy Strike")] AttackDamage,
+    [InspectorName("Eternal Grog")] HPBoost,
+    [InspectorName("Boarding Dash")] MovementSpeed,
+    [InspectorName("Brine Barrier")] ShieldCapacity,
+    [InspectorName("Iron Ribs")] DamageReduction
 }
 
 [CreateAssetMenu(fileName = "NewBuffData", menuName = "Game/Buff Data")]

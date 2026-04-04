@@ -13,7 +13,7 @@ public class PlayerBuffs : MonoBehaviour
     [Header("Defense Stats")]
     public float shieldCapacity = 0f;    
     public float maxShieldCapacity = 0f; 
-    public float damageReduction = 0f;   
+    public float damageReduction = 0f; // 0.2 = 20% reduction
 
     [Header("Settings")]
     [SerializeField] private float speedBoostDuration = 15f;
@@ -31,28 +31,27 @@ public class PlayerBuffs : MonoBehaviour
         switch (data.buffType) 
         {
             case BuffType.MovementSpeed:
-                // Start the 15-second timer for Boarding Dash
                 StartCoroutine(TemporarySpeedBoost(data.value, speedBoostDuration));
                 break;
 
             case BuffType.HPBoost:
-                // Health stays permanent (Eternal Grog)
                 maxHealth += data.value;
                 currentHealth += data.value;
                 break;
 
             case BuffType.AttackDamage:
-                //attackDamage += data.value; // Use this for Permanent
-                StartCoroutine(TemporaryDamageBoost(data.value, 15f)); // Use this ONLY if you want a timer
-    break;
+                StartCoroutine(TemporaryDamageBoost(data.value, 15f));
+                break;
 
             case BuffType.KnockbackForce:
                 knockbackForce += data.value;
                 break;
 
             case BuffType.DamageReduction:
+                // Convert value (e.g. 10) to 0.10 and add to current reduction
                 damageReduction += (data.value / 100f);
-                damageReduction = Mathf.Min(damageReduction, 0.8f);
+                // Cap reduction at 80% to keep the game challenging
+                damageReduction = Mathf.Clamp(damageReduction, 0f, 0.8f);
                 break;
 
             case BuffType.ShieldCapacity:
@@ -61,49 +60,25 @@ public class PlayerBuffs : MonoBehaviour
                 break;
         }
 
-        // Refresh UI immediately for health/shield changes
         if (PlayerHealth.Instance != null)
-        {
             PlayerHealth.Instance.RefreshUI();
-        }
 
-        Debug.Log($"Applied {data.buffType} card!");
+        Debug.Log($"Applied {data.buffType}. Reduction now: {damageReduction * 100}%");
     }
 
     private IEnumerator TemporarySpeedBoost(float boostPercentage, float duration)
     {
-        // Calculate the actual amount to add based on current speed
         float amountToAdd = moveSpeed * (boostPercentage / 100f);
-        
         moveSpeed += amountToAdd; 
-        Debug.Log($"<color=cyan>SPEED BOOST ACTIVE:</color> +{boostPercentage}% for {duration}s");
-
-        // Wait for 15 seconds
         yield return new WaitForSeconds(duration);
-
-        // Remove the boost
         moveSpeed -= amountToAdd; 
-        
-        // Ensure we don't go below the base speed due to rounding
         if (moveSpeed < 5f) moveSpeed = 5f;
-
-        Debug.Log("<color=orange>SPEED BOOST EXPIRED:</color> Returning to normal speed.");
-        
-        // Refresh UI in case you have a speed bar or icon
-        if (PlayerHealth.Instance != null)
-        {
-            PlayerHealth.Instance.RefreshUI(); 
-        }
     }
 
     private IEnumerator TemporaryDamageBoost(float boostAmount, float duration)
-{
-    attackDamage += boostAmount;
-    Debug.Log($"<color=red>DAMAGE BOOST ACTIVE!</color> +{boostAmount} DMG");
-
-    yield return new WaitForSeconds(duration);
-
-    attackDamage -= boostAmount;
-    Debug.Log("<color=white>Damage Boost Expired.</color>");
-}
+    {
+        attackDamage += boostAmount;
+        yield return new WaitForSeconds(duration);
+        attackDamage -= boostAmount;
+    }
 }
