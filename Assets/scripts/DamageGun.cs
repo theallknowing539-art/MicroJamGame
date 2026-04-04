@@ -48,4 +48,15 @@ public class DamageGun : MonoBehaviour
             CameraShake.Instance.Shake(0.15f, 0.05f);
         }
     }
+
+    void Update()
+{
+    // If the PlayerHealth script says we are dead, don't shoot!
+    if (PlayerHealth.Instance != null && PlayerHealth.Instance.IsDead) return;
+
+    if (Input.GetButtonDown("Fire1"))
+    {
+        Shoot();
+    }
+}
 }
