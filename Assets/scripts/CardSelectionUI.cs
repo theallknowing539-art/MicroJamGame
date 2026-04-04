@@ -5,7 +5,8 @@ using UnityEngine;
 public class CardSelectionUI : MonoBehaviour
 {
     [Header("Card Slots")]
-    [SerializeField] private BuffCardUI[] cardSlots; // Ensure this array size is 6 in the Inspector
+    // This array contains your 6 slots from the Inspector
+    [SerializeField] private BuffCardUI[] cardSlots; 
 
     private void OnEnable()
     {
@@ -40,21 +41,22 @@ public class CardSelectionUI : MonoBehaviour
 
     public void ShowCards(List<BuffData> cards, int level)
     {
-        // Show the panel
+        // 1. Show the panel
         transform.localScale = Vector3.one;
 
-        // Loop through your 6 UI slots
+        // 2. Loop through every physical slot you have (all 6)
         for (int i = 0; i < cardSlots.Length; i++)
         {
-            // If the manager sent a card for this index, set it up
-            if (i < cards.Count)
+            // 3. Only show a slot if we have a card for it AND we haven't hit 3 cards yet
+            // (The BuffManager already limits cards.Count to 3, so this is extra safe)
+            if (i < cards.Count && i < 3)
             {
                 cardSlots[i].gameObject.SetActive(true);
                 cardSlots[i].Setup(cards[i], level);
             }
             else
             {
-                // If the manager sent fewer than 6 cards, hide the extra slots
+                // 4. Hide Slot 4, 5, and 6 (or any slot without a card)
                 cardSlots[i].gameObject.SetActive(false);
             }
         }

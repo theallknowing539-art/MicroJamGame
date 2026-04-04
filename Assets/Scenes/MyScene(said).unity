@@ -1706,7 +1706,7 @@ MonoBehaviour:
   m_StartAxis: 0
   m_CellSize: {x: 200, y: 300}
   m_Spacing: {x: 30, y: 30}
-  m_Constraint: 1
+  m_Constraint: 0
   m_ConstraintCount: 3
 --- !u!1 &371161268 stripped
 GameObject:
@@ -5757,8 +5757,7 @@ MonoBehaviour:
   enemyLayer:
     serializedVersion: 2
     m_Bits: 64
-  groundSlamKnockbackEnabled: 1
-  groundSlamKnockbackForce: 20
+  groundSlamBaseKnockback: 15
   cameraHolder: {fileID: 239920636}
   weaponSway: {fileID: 1878147812}
   walkProfile:
@@ -6265,11 +6264,9 @@ MonoBehaviour:
   healthSlider: {fileID: 689739258}
   shieldSlider: {fileID: 809826482}
   instabilitySlider: {fileID: 167093629}
-  ammoIcon: {fileID: 99433672}
-  ammoSprite: {fileID: 21300000, guid: b1adc51ec1e1eee488d840d2fd4612ad, type: 3}
+  _gun: {fileID: 1878147811}
   ammoCurrentText: {fileID: 26941619}
   ammoReserveText: {fileID: 1033149315}
-  _gun: {fileID: 1878147811}
   bottleIcon: {fileID: 1558901340}
   bottleCountText: {fileID: 571088626}
   rumBottleData: {fileID: 11400000, guid: 5ac0678dd811e534cbd87c8a84ce6006, type: 2}
@@ -12661,15 +12658,11 @@ MonoBehaviour:
   Automatic: 0
   baseGunDamage: 10
   range: 100
-  enemyLayer:
-    serializedVersion: 2
-    m_Bits: 0
   magazineSize: 6
   reserveAmmo: 30
   reloadDuration: 1.5
   _audioSource: {fileID: 2126438955}
   _shootSound: {fileID: 8300000, guid: b9087c976bf7983429a5efa7315b8a09, type: 3}
-  _reloadSound: {fileID: 8300000, guid: 891ac57caaab66f4b8f9c54816a81978, type: 3}
   _emptySound: {fileID: 8300000, guid: 529efa264294ae549ae8a75c4fdbb62c, type: 3}
   gunAnimator: {fileID: 1810282335}
 --- !u!114 &1878147812
