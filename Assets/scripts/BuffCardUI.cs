@@ -1,39 +1,36 @@
-// ================================================================
-// BuffCardUI.cs
-// Attach to: each card GameObject in the selection Canvas
-// ================================================================
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 
 public class BuffCardUI : MonoBehaviour
 {
-    [Header("UI Elements")]
-    [SerializeField] private Image      cardIcon;
-    [SerializeField] private TextMeshProUGUI cardName;
-    [SerializeField] private TextMeshProUGUI cardDescription;
-    [SerializeField] private TextMeshProUGUI cardLevel;
-    [SerializeField] private Button     selectButton;
+    public TextMeshProUGUI titleText;
+    public TextMeshProUGUI descriptionText;
+    public Image cardIcon;
+    public Button selectButton;
 
-    private BuffData _buffData;
+    private BuffData _currentBuff;
 
-    // ----------------------------------------------------------------
+    // This now matches the (BuffData, int) signature your UI is calling
     public void Setup(BuffData data, int level)
     {
-        _buffData = data;
+        _currentBuff = data;
 
-        if (cardIcon        != null) cardIcon.sprite      = data.icon;
-        if (cardName        != null) cardName.text        = data.buffName;
-        if (cardDescription != null) cardDescription.text = data.GetDescription(level);
-        if (cardLevel       != null) cardLevel.text       = $"LEVEL {level}";
+        if (titleText != null) titleText.text = data.buffName;
+        if (descriptionText != null) descriptionText.text = data.description;
+        if (cardIcon != null) cardIcon.sprite = data.cardSprite;
 
+        // Clear old clicks and add the new one
         selectButton.onClick.RemoveAllListeners();
-        selectButton.onClick.AddListener(OnCardSelected);
+        selectButton.onClick.AddListener(HandleClick);
     }
 
-    // ----------------------------------------------------------------
-    private void OnCardSelected()
+    private void HandleClick()
     {
-        BuffManager.Instance.SelectBuff(_buffData);
+        // Tell the BuffManager that the player chose THIS buff
+        if (BuffManager.Instance != null)
+        {
+            BuffManager.Instance.ApplyBuff(_currentBuff);
+        }
     }
 }

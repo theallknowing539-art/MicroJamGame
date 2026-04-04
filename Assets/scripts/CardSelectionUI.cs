@@ -1,18 +1,24 @@
-// ================================================================
-// CardSelectionUI.cs
-// Attach to: the card selection Canvas GameObject
-// ================================================================
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
 public class CardSelectionUI : MonoBehaviour
 {
     [Header("Card Slots")]
-    [SerializeField] private BuffCardUI[] cardSlots;   // 3 slots
+    [SerializeField] private BuffCardUI[] cardSlots; // Ensure this array size is 6 in the Inspector
 
-    // ----------------------------------------------------------------
     private void OnEnable()
     {
+        StartCoroutine(WaitAndSubscribe());
+    }
+
+    private IEnumerator WaitAndSubscribe()
+    {
+        while (BuffManager.Instance == null)
+        {
+            yield return null; 
+        }
+
         BuffManager.Instance.OnCardSelectionStarted += ShowCards;
         BuffManager.Instance.OnBuffApplied          += HideCards;
     }
@@ -26,20 +32,21 @@ public class CardSelectionUI : MonoBehaviour
         }
     }
 
-    // ----------------------------------------------------------------
     private void Start()
     {
-        // hide on start
-        gameObject.SetActive(false);
+        // Hide UI at start
+        transform.localScale = Vector3.zero;
     }
 
-    // ----------------------------------------------------------------
-    private void ShowCards(List<BuffData> cards, int level)
+    public void ShowCards(List<BuffData> cards, int level)
     {
-        gameObject.SetActive(true);
+        // Show the panel
+        transform.localScale = Vector3.one;
 
+        // Loop through your 6 UI slots
         for (int i = 0; i < cardSlots.Length; i++)
         {
+            // If the manager sent a card for this index, set it up
             if (i < cards.Count)
             {
                 cardSlots[i].gameObject.SetActive(true);
@@ -47,14 +54,14 @@ public class CardSelectionUI : MonoBehaviour
             }
             else
             {
+                // If the manager sent fewer than 6 cards, hide the extra slots
                 cardSlots[i].gameObject.SetActive(false);
             }
         }
     }
 
-    // ----------------------------------------------------------------
-    private void HideCards(BuffData selected)
+    public void HideCards(BuffData selected)
     {
-        gameObject.SetActive(false);
+        transform.localScale = Vector3.zero;
     }
 }

@@ -11,16 +11,14 @@ public class WaveManager : MonoBehaviour
     public static WaveManager Instance { get; private set; }
 
     // ----------------------------------------------------------------
-    // Wave Definition — designer fills these out in the inspector
+    // Wave Definition
     // ----------------------------------------------------------------
     [System.Serializable]
     public class WaveData
     {
         public string waveName = "Wave 1";
-
         [Tooltip("How many enemies spawn in this wave.")]
         public int enemyCount = 5;
-
         [Tooltip("Delay in seconds between each enemy spawn.")]
         public float spawnInterval = 1.5f;
     }
@@ -31,25 +29,21 @@ public class WaveManager : MonoBehaviour
     [Header("Wave Definitions")]
     [SerializeField] private List<WaveData> waves = new List<WaveData>();
 
-    [Header("Scaling — applied on top of wave definitions")]
-    [Tooltip("Extra enemies added per wave beyond the defined list.")]
+    [Header("Scaling")]
     [SerializeField] private int enemiesAddedPerWave = 2;
-
-    [Tooltip("After all defined waves are cleared, keep spawning with this many enemies " +
-             "plus the scaling above. Set to 0 to end the game after the last wave.")]
     [SerializeField] private int endlessBaseEnemyCount = 10;
 
     [Header("Break Between Waves")]
-    [SerializeField] private float breakDuration = 10f;    // seconds the player gets to breathe
+    [SerializeField] private float breakDuration = 10f;
 
     // ----------------------------------------------------------------
-    // Events — UI and other systems subscribe to these
+    // Events
     // ----------------------------------------------------------------
-    public event Action<int, int>  OnWaveStarted;       // (waveNumber, totalEnemies)
-    public event Action<int>       OnWaveCleared;        // (waveNumber)
-    public event Action<float>     OnBreakTick;          // (secondsRemaining) — fires every second
-    public event Action            OnAllWavesCleared;    // fires if endless mode is off and waves run out
-    public event Action<int>       OnEnemyCountChanged;  // (enemiesRemainingThisWave)
+    public event Action<int, int>  OnWaveStarted;
+    public event Action<int>       OnWaveCleared;
+    public event Action<float>     OnBreakTick;
+    public event Action            OnAllWavesCleared;
+    public event Action<int>       OnEnemyCountChanged;
 
     // ----------------------------------------------------------------
     // State
@@ -59,7 +53,6 @@ public class WaveManager : MonoBehaviour
     public bool IsBreak            { get; private set; } = false;
     public bool IsRunning          { get; private set; } = false;
 
-    // ----------------------------------------------------------------
     private void Awake()
     {
         if (Instance != null) { Destroy(gameObject); return; }
@@ -72,37 +65,46 @@ public class WaveManager : MonoBehaviour
     }
 
     // ----------------------------------------------------------------
-    // Main loop
+    // Main Wave Loop
     // ----------------------------------------------------------------
     private IEnumerator RunWaves()
     {
         IsRunning = true;
-
-        // short delay before the first wave so the scene can finish loading
         yield return new WaitForSeconds(2f);
 
         while (true)
         {
-            // build the wave data for this wave number
             WaveData data = BuildWaveData(CurrentWave);
 
-            // start the wave
+            // Start the wave
             CurrentWave++;
             EnemiesRemaining = data.enemyCount;
             IsBreak = false;
 
             OnWaveStarted?.Invoke(CurrentWave, data.enemyCount);
 
-            // tell the spawner to start spawning
             if (EnemySpawner.Instance != null)
                 StartCoroutine(EnemySpawner.Instance.SpawnWave(data.enemyCount, data.spawnInterval));
 
-            // wait until all enemies are dead
+            // 1. Wait until all enemies in the current wave are dead
             yield return new WaitUntil(() => EnemiesRemaining <= 0);
 
+            // 2. Trigger the Wave Cleared Event
             OnWaveCleared?.Invoke(CurrentWave);
 
-            // check if we've run out of defined waves and endless mode is off
+            // 3. TRIGGER THE BUFF SELECTION
+            // This pauses the game and shows the 3 cards for the current wave level
+            if (BuffManager.Instance != null)
+            {
+                BuffManager.Instance.TriggerBuffSelection(CurrentWave);
+            }
+
+            // 4. Wait for the player to click a card
+            // Since BuffManager sets Time.timeScale to 0, this loop effectively 
+            // waits for the player to make a choice before moving to the break.
+            yield return new WaitUntil(() => Time.timeScale > 0);
+
+            // Check if game should end
             bool beyondDefinedWaves = CurrentWave >= waves.Count;
             if (beyondDefinedWaves && endlessBaseEnemyCount == 0)
             {
@@ -111,7 +113,7 @@ public class WaveManager : MonoBehaviour
                 yield break;
             }
 
-            // break countdown
+            // 5. Start the break countdown
             IsBreak = true;
             float timeLeft = breakDuration;
             while (timeLeft > 0f)
@@ -124,17 +126,11 @@ public class WaveManager : MonoBehaviour
         }
     }
 
-    // ----------------------------------------------------------------
-    // Builds the WaveData for the given wave index.
-    // Uses the designer-defined list first, then scales endlessly.
-    // ----------------------------------------------------------------
     private WaveData BuildWaveData(int waveIndex)
     {
         WaveData data = new WaveData();
-
         if (waveIndex < waves.Count)
         {
-            // use the hand-crafted wave, then add scaling on top
             WaveData defined = waves[waveIndex];
             data.waveName      = defined.waveName;
             data.enemyCount    = defined.enemyCount + (waveIndex * enemiesAddedPerWave);
@@ -142,18 +138,13 @@ public class WaveManager : MonoBehaviour
         }
         else
         {
-            // endless — keep scaling past the defined list
             data.waveName      = $"Wave {waveIndex + 1}";
             data.enemyCount    = endlessBaseEnemyCount + (waveIndex * enemiesAddedPerWave);
-            data.spawnInterval = Mathf.Max(0.3f, 1.5f - (waveIndex * 0.05f)); // gets slightly faster
+            data.spawnInterval = Mathf.Max(0.3f, 1.5f - (waveIndex * 0.05f));
         }
-
         return data;
     }
 
-    // ----------------------------------------------------------------
-    // Call this from the enemy's death script
-    // ----------------------------------------------------------------
     public void ReportEnemyDeath()
     {
         EnemiesRemaining = Mathf.Max(0, EnemiesRemaining - 1);
