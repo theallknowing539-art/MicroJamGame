@@ -24,11 +24,11 @@ public class Enemy : MonoBehaviour
 
     [Header("Death Effects")]
     [SerializeField] private float deathAnimationDuration = 2f;
-    [SerializeField] private GameObject boneParticlePrefab; // Shatter effect
+    [SerializeField] private GameObject boneParticlePrefab;
 
-    [Header("Knockback")]
-    [SerializeField] private float knockbackDuration = 0.4f;
-    [SerializeField] private float knockbackSpeed = 8f;
+    [Header("Knockback Settings")]
+    [SerializeField] private float friction = 10f; // How fast they stop sliding
+    private Vector3 _knockbackVelocity;
 
     [Header("Drop Table")]
     [SerializeField] private DropTable dropTable;
@@ -46,7 +46,6 @@ public class Enemy : MonoBehaviour
     private Transform    _player;
     private bool         _isDead        = false;
     private bool         _isAttacking   = false;
-    private bool         _isKnockedBack = false;
     private float        _attackTimer   = 0f;
 
     private void Awake()
@@ -54,7 +53,6 @@ public class Enemy : MonoBehaviour
         _agent = GetComponent<NavMeshAgent>();
         _agent.speed = moveSpeed;
         _agent.stoppingDistance = stoppingDistance;
-        _agent.autoBraking = false;
         _currentHealth = maxHealth;
         _audioSource = GetComponent<AudioSource>();
     }
@@ -62,15 +60,20 @@ public class Enemy : MonoBehaviour
     private void Start()
     {
         _renderers = GetComponentsInChildren<SkinnedMeshRenderer>();
-        _agent.Warp(transform.position);
         GameObject playerObj = GameObject.FindWithTag("Player");
         if (playerObj != null) _player = playerObj.transform;
-        animator.SetBool(AnimIsWalking, false);
     }
 
     private void Update()
     {
-        if (_isDead || _isKnockedBack || _player == null) return;
+        if (_isDead || _player == null) return;
+
+        // Apply Knockback Physics
+        if (_knockbackVelocity.magnitude > 0.1f)
+        {
+            _agent.Move(_knockbackVelocity * Time.deltaTime);
+            _knockbackVelocity = Vector3.Lerp(_knockbackVelocity, Vector3.zero, Time.deltaTime * friction);
+        }
 
         float distanceToPlayer = Vector3.Distance(transform.position, _player.position);
         _attackTimer -= Time.deltaTime;
@@ -83,127 +86,121 @@ public class Enemy : MonoBehaviour
         }
         else
         {
-            if (_isAttacking) _isAttacking = false;
-            _agent.SetDestination(_player.position);
-            animator.SetBool(AnimIsWalking, true);
-        }
-    }
-
-    private IEnumerator AttackRoutine()
-    {
-        _isAttacking = true;
-        _attackTimer = attackCooldown;
-        Vector3 direction = (_player.position - transform.position).normalized;
-        transform.rotation = Quaternion.LookRotation(new Vector3(direction.x, 0f, direction.z));
-        animator.SetBool(AnimIsWalking, false);
-        animator.Play("Attack");
-        yield return new WaitForSeconds(windUpDuration);
-        if (!_isDead && _player != null)
-        {
-            float dist = Vector3.Distance(transform.position, _player.position);
-            if (dist <= attackRange) PlayerHealth.Instance.TakeDamage(attackDamage);
-        }
-        yield return new WaitForSeconds(attackCooldown - windUpDuration);
-        _isAttacking = false;
-    }
-
-    public void TakeDamage(float amount)
-    {
-        if (_isDead) return;
-
-        _currentHealth -= amount;
-
-        if (_currentHealth <= 0f)
-        {
-            if (_audioSource != null && hitSound != null)
+            if (!_isAttacking)
             {
-                _audioSource.clip = hitSound;
-                _audioSource.volume = hitVolume;
-                _audioSource.Play();
-                Invoke("StopEnemySound", 0.5f); 
+                _agent.SetDestination(_player.position);
+                animator.SetBool(AnimIsWalking, true);
             }
-            StartCoroutine(Die());
         }
-
-        if (HitStopManager.Instance != null) HitStopManager.Instance.Stop(0.03f); 
-        StartCoroutine(FlashRed());
-        if (CameraShake.Instance != null) CameraShake.Instance.Shake(0.15f);
-    }
-
-    private void StopEnemySound()
-    {
-        if (_audioSource != null) _audioSource.Stop();
-    }
-
-    private IEnumerator FlashRed()
-    {
-        if (_renderers == null || _renderers.Length == 0) yield break;
-        MaterialPropertyBlock props = new MaterialPropertyBlock();
-        props.SetColor("_Color", Color.red);
-        props.SetColor("_BaseColor", Color.red); 
-        foreach (var renderer in _renderers) renderer.SetPropertyBlock(props);
-        yield return new WaitForSecondsRealtime(_flashDuration);
-        foreach (var renderer in _renderers) renderer.SetPropertyBlock(null);
     }
 
     public void ApplyKnockback(Vector3 force)
     {
         if (_isDead) return;
-        StartCoroutine(KnockbackRoutine(force));
+        _knockbackVelocity += force;
+        
+        // Briefly pause the AI pathfinding so they don't fight the push
+        StopAllCoroutines();
+        _isAttacking = false;
+        StartCoroutine(ResetAgentRoutine());
     }
 
-    private IEnumerator KnockbackRoutine(Vector3 force)
+    private IEnumerator ResetAgentRoutine()
     {
-        _isKnockedBack = true;
         _agent.isStopped = true;
-        float elapsed = 0f;
-        while (elapsed < knockbackDuration)
-        {
-            float t = 1f - (elapsed / knockbackDuration);
-            transform.position += force * t * knockbackSpeed * Time.deltaTime;
-            elapsed += Time.deltaTime;
-            yield return null;
-        }
-        _agent.isStopped = false;
-        if (_player != null) _agent.SetDestination(_player.position);
-        _isKnockedBack = false;
+        yield return new WaitForSeconds(0.2f);
+        if (!_isDead) _agent.isStopped = false;
     }
 
-private IEnumerator Die()
+   public void TakeDamage(float amount)
 {
-    _isDead      = true;
-    _isAttacking = false;
+    if (_isDead) return;
+    _currentHealth -= amount;
 
-    _agent.isStopped = true;
-    _agent.velocity  = Vector3.zero;
+    // 1. HIT STOP (Freeze Frame)
+    // We use the 0.08f version for a nice solid "crunch"
+    if (HitStopManager.Instance != null) 
+        HitStopManager.Instance.Stop(0.15f); // 0.15 is longer than the enemy's 0.08
 
-    animator.SetBool(AnimIsWalking, false);
+    if (CameraShake.Instance != null)
+        CameraShake.Instance.HitShake(0.6f, 0.3f);
 
-    yield return null;
+    // 3. RED FLASH 
+    // Stop any existing flash first, then start ONE new one
+    StopCoroutine("FlashRed"); 
+    StartCoroutine("FlashRed");
 
-    _agent.enabled = false;
-    animator.Play("Death");
+    // 4. SOUND
+    if (_audioSource != null && hitSound != null)
+        _audioSource.PlayOneShot(hitSound, hitVolume);
 
-    WaveManager.Instance.ReportEnemyDeath();
-
-    // register kill for buff system
-    if (KillTracker.Instance != null)
-        KillTracker.Instance.RegisterKill();
-
-    RollDrop();
-
-    yield return new WaitForSeconds(deathAnimationDuration);
-    Destroy(gameObject);
+    // 5. DEATH CHECK
+    if (_currentHealth <= 0f) 
+    {
+        StartCoroutine(Die());
+    }
 }
+
+    private IEnumerator FlashRed()
+{
+    MaterialPropertyBlock props = new MaterialPropertyBlock();
+    
+    // 1. Set to RED
+    props.SetColor("_Color", Color.red);
+    foreach (var r in _renderers) 
+    {
+        if (r != null) r.SetPropertyBlock(props);
+    }
+
+    // 2. Wait (Use Realtime so it works during HitStop!)
+    yield return new WaitForSecondsRealtime(_flashDuration);
+
+    // 3. Reset to ORIGINAL
+    foreach (var r in _renderers) 
+    {
+        if (r != null) r.SetPropertyBlock(null);
+    }
+}
+
+    private IEnumerator Die()
+    {
+        _isDead = true;
+        _agent.enabled = false;
+        if (boneParticlePrefab != null) Instantiate(boneParticlePrefab, transform.position + Vector3.up, Quaternion.identity);
+        
+        if (WaveManager.Instance != null)
+        {
+             WaveManager.Instance.ReportEnemyDeath();
+        }
+        RollDrop();
+        animator.Play("Death");
+        yield return new WaitForSeconds(deathAnimationDuration);
+        Destroy(gameObject);
+    }
 
     private void RollDrop()
     {
         if (dropTable == null) return;
         ItemData dropped = dropTable.Roll();
         if (dropped != null && dropped.pickupPrefab != null)
-        {
-            Vector3 spawnPos = transform.position + Vector3.up * 0.3f;
-            Instantiate(dropped.pickupPrefab, spawnPos, Quaternion.identity);
-        }
+            Instantiate(dropped.pickupPrefab, transform.position + Vector3.up * 0.3f, Quaternion.identity);
+    }
+
+    private IEnumerator AttackRoutine()
+    {
+        _isAttacking = true;
+        _attackTimer = attackCooldown;
+        animator.Play("Attack");
+        yield return new WaitForSeconds(windUpDuration);
+        if (!_isDead && Vector3.Distance(transform.position, _player.position) <= attackRange)
+           if (PlayerHealth.Instance != null)
+            {
+                PlayerHealth.Instance.TakeDamage(attackDamage);
+            }
+            else 
+            {   
+                Debug.LogWarning("Enemy is trying to hit player, but PlayerHealth.Instance is missing!");
+            }
+        _isAttacking = false;
     }
 }

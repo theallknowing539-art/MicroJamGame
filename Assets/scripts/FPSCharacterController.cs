@@ -6,6 +6,8 @@ public class FPSCharacterController : MonoBehaviour
 {
     public static FPSCharacterController Instance { get; private set; }
 
+    private PlayerBuffs _buffs;
+
     [Header("Movement")]
     [SerializeField] private float walkSpeed = 5f;
     [SerializeField] private float sprintSpeed = 10f;
@@ -45,16 +47,12 @@ public class FPSCharacterController : MonoBehaviour
     [SerializeField] private float groundSlamRadius = 3f;
     [SerializeField] private float groundSlamDamage = 30f;
     [SerializeField] private LayerMask enemyLayer;
-    public bool groundSlamKnockbackEnabled = false;
-    [SerializeField] private float groundSlamKnockbackForce = 15f;
+    [SerializeField] private float groundSlamBaseKnockback = 15f;
 
     [Header("References")]
     [SerializeField] private Transform cameraHolder;
     [SerializeField] private WeaponSway weaponSway;
 
-    // ----------------------------------------------------------------
-    // Headbob Profiles
-    // ----------------------------------------------------------------
     [System.Serializable]
     public class HeadbobProfile
     {
@@ -74,7 +72,6 @@ public class FPSCharacterController : MonoBehaviour
     [SerializeField] private HeadbobProfile slideProfile;
 
     private HeadbobProfile _activeProfile;
-
     private float   _bobTimer          = 0f;
     private Vector3 _currentBobOffset  = Vector3.zero;
     private float   _currentTilt       = 0f;
@@ -82,7 +79,6 @@ public class FPSCharacterController : MonoBehaviour
 
     private CharacterController _cc;
     private Vector3 _velocity;
-
     private float   _pitch;
     private float   _yaw;
     private Vector2 _mouseDelta;
@@ -92,29 +88,24 @@ public class FPSCharacterController : MonoBehaviour
     private bool    _isCrouching        = false;
     private float   _targetHeight;
     private Vector3 _targetCameraPos;
-
     private bool    _isMoving           = false;
     private bool    _isSprinting        = false;
     private bool    _movementLocked     = false;
-
     private int     _jumpsUsed          = 0;
     private bool    _wasGrounded        = false;
     private bool    _jumpPressed        = false;
-
     private bool    _isSliding          = false;
     private float   _slideTimer         = 0f;
     private float   _slideCooldownTimer = 0f;
     private Vector3 _slideDirection     = Vector3.zero;
-
     private bool    _isSlamming         = false;
 
-    // ----------------------------------------------------------------
     private void Awake()
     {
         if (Instance != null) { Destroy(gameObject); return; }
         Instance = this;
-
         _cc = GetComponent<CharacterController>();
+        _buffs = GetComponent<PlayerBuffs>();
 
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible   = false;
@@ -127,324 +118,214 @@ public class FPSCharacterController : MonoBehaviour
         _targetCameraPos = standingCameraPos;
         _cc.height       = standingHeight;
         _cc.center       = new Vector3(0, standingHeight / 2f, 0);
-
         _activeProfile = walkProfile;
     }
 
-    // ----------------------------------------------------------------
     private void Update()
-    {
-        HandleMouseLook();
-        HandleMovement();
-        HandleCrouch();
-        HandleHeadbob();
+{
+    // If movement is locked (Menu is open), do NOTHING
+    if (_movementLocked) return; 
 
-        if (weaponSway != null)
-            weaponSway.SetMovementState(_isMoving, _isSprinting, _isCrouching);
-    }
+    HandleMouseLook();
+    HandleMovement();
+    HandleCrouch();
+    HandleHeadbob();
 
-    // ----------------------------------------------------------------
+    if (weaponSway != null)
+        weaponSway.SetMovementState(_isMoving, _isSprinting, _isCrouching);
+}
+
     private void HandleMouseLook()
     {
         _mouseDelta.x = Input.GetAxisRaw("Mouse X");
         _mouseDelta.y = Input.GetAxisRaw("Mouse Y");
 
-        _smoothMouseDelta = Vector2.SmoothDamp(
-            _smoothMouseDelta,
-            _mouseDelta,
-            ref _mouseDeltaVelocity,
-            smoothTime
-        );
+        _smoothMouseDelta = Vector2.SmoothDamp(_smoothMouseDelta, _mouseDelta, ref _mouseDeltaVelocity, smoothTime);
 
         _yaw   += _smoothMouseDelta.x * mouseSensitivity;
         _pitch -= _smoothMouseDelta.y * mouseSensitivity;
         _pitch  = Mathf.Clamp(_pitch, -verticalClamp, verticalClamp);
 
         transform.rotation = Quaternion.Euler(0f, _yaw, 0f);
-
         if (cameraHolder != null)
             cameraHolder.localRotation = Quaternion.Euler(_pitch, 0f, 0f);
     }
 
-    // ----------------------------------------------------------------
     private void HandleMovement()
     {
         if (_movementLocked) return;
 
         float h = Input.GetAxisRaw("Horizontal");
         float v = Input.GetAxisRaw("Vertical");
-
         Vector3 moveDir = transform.right * h + transform.forward * v;
         if (moveDir.magnitude > 1f) moveDir.Normalize();
 
         bool isGrounded = _cc.isGrounded;
 
-        // ---- grounded housekeeping ----
         if (isGrounded)
         {
-            if (_velocity.y < 0f)
-                _velocity.y = -2f;
-
+            if (_velocity.y < 0f) _velocity.y = -2f;
             if (!_wasGrounded)
             {
                 _jumpsUsed = 0;
                 StartCoroutine(JumpLandTilt(-2f, 0.1f));
-
-                if (_isSlamming)
-                    ExecuteGroundSlam();
+                if (_isSlamming) ExecuteGroundSlam();
             }
         }
-
         _wasGrounded = isGrounded;
 
-        // ---- slide cooldown ----
-        if (_slideCooldownTimer > 0f)
-            _slideCooldownTimer -= Time.deltaTime;
+        if (_slideCooldownTimer > 0f) _slideCooldownTimer -= Time.deltaTime;
 
-        // ---- slide trigger ----
-        bool wantToSlide = Input.GetKeyDown(KeyCode.LeftControl)
-                        && _isSprinting
-                        && isGrounded
-                        && moveDir.magnitude > 0f
-                        && !_isSliding
-                        && _slideCooldownTimer <= 0f;
-
-        if (wantToSlide)
+        if (Input.GetKeyDown(KeyCode.LeftControl) && _isSprinting && isGrounded && moveDir.magnitude > 0f && !_isSliding && _slideCooldownTimer <= 0f)
             StartSlide(moveDir);
 
-        // ---- ground slam trigger ----
         if (Input.GetKeyDown(KeyCode.LeftControl) && !isGrounded && !_isSlamming)
             StartGroundSlam();
 
-        // ---- jump input ----
         if (Input.GetButtonDown("Jump"))
         {
-            if (_isSliding)
-                EndSlide();
-            else
-                _jumpPressed = true;
+            if (_isSliding) EndSlide();
+            else _jumpPressed = true;
         }
 
-        // ---- jump execution ----
         if (jumpEnabled && _jumpPressed && !_isSliding)
         {
             _jumpPressed = false;
-
-            bool staminaAllowsJump = Stamina.Instance == null || Stamina.Instance.CanJump;
-
-            if (staminaAllowsJump)
+            if (Stamina.Instance == null || Stamina.Instance.CanJump)
             {
-                bool canJumpFromGround = isGrounded && _jumpsUsed == 0;
-                bool canAirJump        = !isGrounded && _jumpsUsed < maxJumps;
-
-                if (canJumpFromGround)
+                if (isGrounded && _jumpsUsed == 0)
                 {
                     _velocity.y = JumpVelocityForHeight(firstJumpHeight);
-                    _jumpsUsed  = 1;
-
-
+                    _jumpsUsed = 1;
                     StartCoroutine(JumpLandTilt(2f, 0.1f));
-                    if (Stamina.Instance != null)
-                        Stamina.Instance.UseJumpStamina();
+                    if (Stamina.Instance != null) Stamina.Instance.UseJumpStamina();
                 }
-                else if (canAirJump)
+                else if (!isGrounded && _jumpsUsed < maxJumps)
                 {
-                    float thisAirHeight = airJumpHeight
-                        * Mathf.Pow(airJumpHeightMultiplier, _jumpsUsed - 1);
-
+                    float thisAirHeight = airJumpHeight * Mathf.Pow(airJumpHeightMultiplier, _jumpsUsed - 1);
                     _velocity.y = JumpVelocityForHeight(thisAirHeight);
-                    _jumpsUsed += 1;
-
-                    if (Stamina.Instance != null)
-                        Stamina.Instance.UseJumpStamina();
-
-                    if (airJumpSpeedBoost > 0f && moveDir.magnitude > 0f)
-                        _cc.Move(moveDir * airJumpSpeedBoost * Time.deltaTime);
+                    _jumpsUsed++;
+                    if (Stamina.Instance != null) Stamina.Instance.UseJumpStamina();
                 }
             }
         }
-        else
-        {
-            _jumpPressed = false;
-        }
+        else _jumpPressed = false;
 
-        // ---- gravity ----
         if (!isGrounded)
         {
-            if (_isSlamming)
-                _velocity.y = -groundSlamForce;
-            else if (_velocity.y < 0f)
-                _velocity.y += gravity * (fallMultiplier - 1f) * Time.deltaTime;
-            else if (_velocity.y > 0f && !Input.GetButton("Jump"))
-                _velocity.y += gravity * (lowJumpMultiplier - 1f) * Time.deltaTime;
+            if (_isSlamming) _velocity.y = -groundSlamForce;
+            else if (_velocity.y < 0f) _velocity.y += gravity * (fallMultiplier - 1f) * Time.deltaTime;
+            else if (_velocity.y > 0f && !Input.GetButton("Jump")) _velocity.y += gravity * (lowJumpMultiplier - 1f) * Time.deltaTime;
         }
-
         _velocity.y += gravity * Time.deltaTime;
 
-        // ---- sprint ----
         bool staminaAllowsSprint = Stamina.Instance == null || !Stamina.Instance.IsExhausted;
-        _isSprinting = !_isCrouching && !_isSliding && staminaAllowsSprint
-                    && (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift));
+        _isSprinting = !_isCrouching && !_isSliding && staminaAllowsSprint && (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift));
 
-        // ---- movement application ----
         Vector3 horizontalMove;
-
         if (_isSliding)
         {
             _slideTimer -= Time.deltaTime;
             horizontalMove = _slideDirection * (sprintSpeed * slideSpeedMultiplier);
-
-            if (_slideTimer <= 0f)
-                EndSlide();
+            if (_slideTimer <= 0f) EndSlide();
         }
         else
         {
-            float currentSpeed = _isSprinting ? sprintSpeed : walkSpeed;
+            float buffedWalk = (_buffs != null) ? _buffs.moveSpeed : walkSpeed;
+            float sprintMult = sprintSpeed / walkSpeed; 
+            float buffedSprint = buffedWalk * sprintMult;
+            float currentSpeed = _isSprinting ? buffedSprint : buffedWalk;
             horizontalMove = moveDir * currentSpeed;
         }
 
         _isMoving = moveDir.magnitude > 0f && isGrounded && !_isSliding;
-
         _cc.Move((horizontalMove + new Vector3(0f, _velocity.y, 0f)) * Time.deltaTime);
     }
 
-    // ----------------------------------------------------------------
     private void StartSlide(Vector3 direction)
     {
         if (Stamina.Instance != null && !Stamina.Instance.UseSlideStamina()) return;
-
-        _isSliding       = true;
-        _slideTimer      = slideDuration;
-        _slideDirection  = direction;
-        _isCrouching     = true;
-        _targetHeight    = crouchingHeight;
+        _isSliding = true;
+        _slideTimer = slideDuration;
+        _slideDirection = direction;
+        _isCrouching = true;
+        _targetHeight = crouchingHeight;
         _targetCameraPos = slidingCameraPos;
     }
 
-    // ----------------------------------------------------------------
     private void EndSlide()
     {
-        _isSliding          = false;
+        _isSliding = false;
         _slideCooldownTimer = slideCooldown;
-        _isCrouching        = false;
-        _targetHeight       = standingHeight;
-        _targetCameraPos    = standingCameraPos;
+        _isCrouching = false;
+        _targetHeight = standingHeight;
+        _targetCameraPos = standingCameraPos;
     }
 
-    // ----------------------------------------------------------------
-    private void StartGroundSlam()
-    {
-        _isSlamming = true;
-        _velocity.y = -groundSlamForce;
-    }
+    private void StartGroundSlam() { _isSlamming = true; _velocity.y = -groundSlamForce; }
 
-    // ----------------------------------------------------------------
     private void ExecuteGroundSlam()
     {
         _isSlamming = false;
+        if (Stamina.Instance != null) Stamina.Instance.UseGroundSlamStamina();
 
-        if (Stamina.Instance != null)
-            Stamina.Instance.UseGroundSlamStamina();
-
-        Collider[] hits = Physics.OverlapSphere(
-            transform.position, groundSlamRadius, enemyLayer);
-
+        Collider[] hits = Physics.OverlapSphere(transform.position, groundSlamRadius, enemyLayer);
         foreach (Collider hit in hits)
         {
             Enemy enemy = hit.GetComponent<Enemy>();
             if (enemy != null)
             {
                 enemy.TakeDamage(groundSlamDamage);
-
-                // only knockback if buff is active
-                if (groundSlamKnockbackEnabled)
-                {
-                    Vector3 knockbackDir = (hit.transform.position
-                        - transform.position).normalized;
-                    enemy.ApplyKnockback(knockbackDir * groundSlamKnockbackForce);
-                }
+                
+                // --- KRAKEN'S BELCH INTEGRATION ---
+                float totalSlamForce = groundSlamBaseKnockback + (_buffs != null ? _buffs.knockbackForce : 0f);
+                Vector3 knockbackDir = (hit.transform.position - transform.position).normalized;
+                knockbackDir.y = 0.2f; // Adds a tiny bit of "pop" upward
+                enemy.ApplyKnockback(knockbackDir * totalSlamForce);
             }
         }
 
-        if (SlamEffect.Instance != null)
-            SlamEffect.Instance.PlaySlamEffect();
-
-        Debug.Log($"[GroundSlam] Hit {hits.Length} enemies. " +
-                  $"Knockback: {groundSlamKnockbackEnabled}");
+        if (SlamEffect.Instance != null) SlamEffect.Instance.PlaySlamEffect();
     }
 
-    // ----------------------------------------------------------------
-    private float JumpVelocityForHeight(float height)
-    {
-        return Mathf.Sqrt(2f * Mathf.Abs(gravity) * height);
-    }
+    private float JumpVelocityForHeight(float height) { return Mathf.Sqrt(2f * Mathf.Abs(gravity) * height); }
 
-    // ----------------------------------------------------------------
     private void HandleCrouch()
     {
         if (_isSliding) goto ApplyHeight;
-
-        if (crouchEnabled && Input.GetKeyDown(KeyCode.LeftControl)
-            && _cc.isGrounded && !_isSprinting)
+        if (crouchEnabled && Input.GetKeyDown(KeyCode.LeftControl) && _cc.isGrounded && !_isSprinting)
         {
-            _isCrouching     = !_isCrouching;
-            _targetHeight    = _isCrouching ? crouchingHeight    : standingHeight;
+            _isCrouching = !_isCrouching;
+            _targetHeight = _isCrouching ? crouchingHeight : standingHeight;
             _targetCameraPos = _isCrouching ? crouchingCameraPos : standingCameraPos;
         }
-
-        if (!crouchEnabled && _isCrouching)
-        {
-            _isCrouching     = false;
-            _targetHeight    = standingHeight;
-            _targetCameraPos = standingCameraPos;
-        }
-
         ApplyHeight:
-        _cc.height = Mathf.Lerp(
-            _cc.height, _targetHeight, Time.deltaTime * crouchTransitionSpeed);
+        _cc.height = Mathf.Lerp(_cc.height, _targetHeight, Time.deltaTime * crouchTransitionSpeed);
         _cc.center = new Vector3(0, _cc.height / 2f, 0);
-
         if (cameraHolder != null)
-        {
-            cameraHolder.localPosition = Vector3.Lerp(
-                cameraHolder.localPosition,
-                _targetCameraPos,
-                Time.deltaTime * crouchTransitionSpeed
-            );
-        }
+            cameraHolder.localPosition = Vector3.Lerp(cameraHolder.localPosition, _targetCameraPos, Time.deltaTime * crouchTransitionSpeed);
     }
 
-    // ----------------------------------------------------------------
     private void HandleHeadbob()
     {
-        if (_isSliding)        _activeProfile = slideProfile;
+        if (_isSliding) _activeProfile = slideProfile;
         else if (_isCrouching) _activeProfile = crouchProfile;
         else if (_isSprinting) _activeProfile = sprintProfile;
-        else                   _activeProfile = walkProfile;
+        else _activeProfile = walkProfile;
 
         if (_isMoving || _isSliding)
         {
             _bobTimer += Time.deltaTime * _activeProfile.verticalFrequency;
-
-            float targetBobY = Mathf.Sin(_bobTimer)        * _activeProfile.verticalAmplitude;
+            float targetBobY = Mathf.Sin(_bobTimer) * _activeProfile.verticalAmplitude;
             float targetTilt = Mathf.Cos(_bobTimer * 0.5f) * _activeProfile.tiltAmplitude;
 
-            Vector3 targetOffset = new Vector3(0f, targetBobY, 0f);
-            _currentBobOffset = Vector3.SmoothDamp(
-                _currentBobOffset, targetOffset, ref _bobVelocity,
-                1f / _activeProfile.bobSmoothSpeed
-            );
-            _currentTilt = Mathf.Lerp(_currentTilt, targetTilt,
-                Time.deltaTime * _activeProfile.bobSmoothSpeed);
+            _currentBobOffset = Vector3.SmoothDamp(_currentBobOffset, new Vector3(0, targetBobY, 0), ref _bobVelocity, 1f / _activeProfile.bobSmoothSpeed);
+            _currentTilt = Mathf.Lerp(_currentTilt, targetTilt, Time.deltaTime * _activeProfile.bobSmoothSpeed);
         }
         else
         {
-            _currentBobOffset = Vector3.SmoothDamp(
-                _currentBobOffset, Vector3.zero, ref _bobVelocity,
-                1f / _activeProfile.returnSpeed
-            );
-            _currentTilt = Mathf.Lerp(_currentTilt, 0f,
-                Time.deltaTime * _activeProfile.returnSpeed);
+            _currentBobOffset = Vector3.SmoothDamp(_currentBobOffset, Vector3.zero, ref _bobVelocity, 1f / _activeProfile.returnSpeed);
+            _currentTilt = Mathf.Lerp(_currentTilt, 0f, Time.deltaTime * _activeProfile.returnSpeed);
             _bobTimer = 0f;
         }
 
@@ -455,56 +336,46 @@ public class FPSCharacterController : MonoBehaviour
         }
     }
 
-    // ----------------------------------------------------------------
-    // Public API
-    // ----------------------------------------------------------------
-    public bool IsSprinting                               => _isSprinting;
-    public void SetMovementLocked(bool locked)            => _movementLocked = locked;
-    public void SetHeadbobProfile(HeadbobProfile profile) => _activeProfile  = profile;
-    public void SetCursorLock(bool locked)
+    private IEnumerator JumpLandTilt(float tiltAmount, float duration)
     {
-        Cursor.lockState = locked ? CursorLockMode.Locked : CursorLockMode.None;
-        Cursor.visible   = !locked;
+        if (cameraHolder == null) yield break;
+        Quaternion startRot = cameraHolder.localRotation;
+        Quaternion targetRot = startRot * Quaternion.Euler(tiltAmount, 0, 0);
+        float elapsed = 0f;
+        while (elapsed < duration) { cameraHolder.localRotation = Quaternion.Slerp(startRot, targetRot, elapsed / duration); elapsed += Time.deltaTime; yield return null; }
+        elapsed = 0f;
+        while (elapsed < duration * 2f) { cameraHolder.localRotation = Quaternion.Slerp(targetRot, startRot, elapsed / (duration * 2f)); elapsed += Time.deltaTime; yield return null; }
+        cameraHolder.localRotation = startRot;
     }
-    public void SetJumpEnabled(bool enabled)    => jumpEnabled     = enabled;
-    public void SetCrouchEnabled(bool enabled)  => crouchEnabled   = enabled;
-    public void SetMaxJumps(int count)          => maxJumps        = Mathf.Max(1, count);
-    public void SetFirstJumpHeight(float h)     => firstJumpHeight = Mathf.Max(0.1f, h);
-    public void SetAirJumpHeight(float h)       => airJumpHeight   = Mathf.Max(0.1f, h);
-    // Paste this at the bottom of the script, before the last }
-private IEnumerator JumpLandTilt(float tiltAmount, float duration)
+
+    public bool IsSprinting => _isSprinting;
+    public void SetMovementLocked(bool locked) => _movementLocked = locked;
+    public void SetCursorLock(bool locked) { Cursor.lockState = locked ? CursorLockMode.Locked : CursorLockMode.None; Cursor.visible = !locked; }
+    public void FreezePlayer(bool freeze)
 {
-    if (cameraHolder == null) yield break;
-
-    float elapsed = 0f;
-    Quaternion startRot = cameraHolder.localRotation;
-    // This calculates the "bent" rotation
-    Quaternion targetRot = startRot * Quaternion.Euler(tiltAmount, 0, 0);
-
-    // Phase 1: Bend the camera (Tilt Down or Up)
-    while (elapsed < duration)
+    _movementLocked = freeze;
+    
+    if (freeze)
+{
+    _velocity = Vector3.zero;
+    
+    // SNAP TO GROUND (Optional):
+    // This moves the player down to the nearest floor before freezing
+    if (Physics.Raycast(transform.position, Vector3.down, out RaycastHit hit, 10f))
     {
-        cameraHolder.localRotation = Quaternion.Slerp(startRot, targetRot, elapsed / duration);
-        elapsed += Time.deltaTime;
-        yield return null;
+        transform.position = hit.point + new Vector3(0, standingHeight / 2f, 0);
     }
 
-    // Phase 2: Smoothly return to the center
-    elapsed = 0f;
-    while (elapsed < duration * 2f)
-    {
-        cameraHolder.localRotation = Quaternion.Slerp(targetRot, startRot, elapsed / (duration * 2f));
-        elapsed += Time.deltaTime;
-        yield return null;
-    }
-
-    // Ensure it's perfectly reset
-    cameraHolder.localRotation = startRot;
+    if (_cc != null) _cc.enabled = false;
 }
-
-// --- ADD THESE FUNCTIONS TO FIX THE BUFF MANAGER ERRORS ---
-
-public void SetWalkSpeedMultiplier(float multiplier)
+    else
+    {
+        // 4. Re-enable when the menu closes
+        if (_cc != null) _cc.enabled = true;
+    }
+} 
+    // API Buff placeholders for compatibility
+    public void SetWalkSpeedMultiplier(float multiplier)
 {
     // If your variable is named differently (e.g., walkSpeed), change it here
     // baseWalkSpeed should be your original speed (e.g., 5.0f)
@@ -513,18 +384,24 @@ public void SetWalkSpeedMultiplier(float multiplier)
     // walkSpeed = baseWalkSpeed * multiplier;
     Debug.Log($"[FPS] Walk Speed Multiplier set to: {multiplier}");
 }
-
-public void SetSprintSpeedMultiplier(float multiplier)
+    public void SetSprintSpeedMultiplier(float multiplier)
 {
     // If your variable is named differently (e.g., sprintSpeed), change it here
     float baseSprintSpeed = 8f;
     // sprintSpeed = baseSprintSpeed * multiplier;
     Debug.Log($"[FPS] Sprint Speed Multiplier set to: {multiplier}");
 }
-
-public void SetGroundSlamKnockbackMultiplier(float multiplier)
+   public void SetGroundSlamKnockbackMultiplier(float multiplier)
 {
     // This is for the Kraken's Belch buff
     Debug.Log($"[FPS] Ground Slam Knockback Multiplier set to: {multiplier}");
+}
+
+// Add this to FPSCharacterController.cs
+public void SetHeadbobProfile(HeadbobProfile profile)
+{
+    _activeProfile = profile;
+    // Reset the timer so the new profile starts smoothly
+    _bobTimer = 0f; 
 }
 }

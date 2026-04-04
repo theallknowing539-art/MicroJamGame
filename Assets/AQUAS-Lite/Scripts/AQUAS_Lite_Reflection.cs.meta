@@ -1,7 +1,11 @@
 fileFormatVersion: 2
+<<<<<<<< HEAD:Assets/AQUAS-Lite/Scripts/AQUAS_Lite_Reflection.cs.meta
 guid: 0294cf6ab82668142b65a8af47752f8c
 timeCreated: 1449577477
 licenseType: Store
+========
+guid: 6d0a3533713cf428ea92af15e23b8752
+>>>>>>>> origin/last-version:Assets/scripts/GameOverManager.cs.meta
 MonoImporter:
   serializedVersion: 2
   defaultReferences: []

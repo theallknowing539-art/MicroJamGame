@@ -3,38 +3,23 @@ using UnityEngine;
 
 public class HitStopManager : MonoBehaviour
 {
-    public static HitStopManager Instance { get; private set; }
-
-    private bool _isWaiting = false;
-
-    private void Awake()
-    {
-        if (Instance != null) { Destroy(gameObject); return; }
-        Instance = this;
+    private static HitStopManager _instance;
+    public static HitStopManager Instance {
+        get {
+            if (_instance == null) {
+                _instance = new GameObject("HitStopManager").AddComponent<HitStopManager>();
+            }
+            return _instance;
+        }
     }
 
-    public void Stop(float duration)
-    {
-        if (_isWaiting) return;
+    public void Stop(float duration) {
         StartCoroutine(Wait(duration));
     }
 
-    private IEnumerator Wait(float duration)
-    {
-        _isWaiting = true;
-        
-        // Record the current time scale
-        float originalTimeScale = Time.timeScale;
-        
-        // Freeze the game
-        Time.timeScale = 0.0f;
-        
-        // Wait for REAL seconds (because Time.timeScale is 0!)
+    private IEnumerator Wait(float duration) {
+        Time.timeScale = 0.02f;
         yield return new WaitForSecondsRealtime(duration);
-        
-        // Unfreeze
-        Time.timeScale = originalTimeScale;
-        
-        _isWaiting = false;
+        Time.timeScale = 1f;
     }
 }
