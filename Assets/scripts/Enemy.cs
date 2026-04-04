@@ -9,7 +9,7 @@ public class Enemy : MonoBehaviour
     [SerializeField] private float _flashDuration = 0.05f;
 
     [Header("Health")]
-    [SerializeField] private float maxHealth = 100f;
+    [SerializeField] private float maxHealth = 40f;
     private float _currentHealth;
 
     [Header("Movement")]
