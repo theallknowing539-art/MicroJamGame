@@ -12,6 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 079b547b80015d74c85493f3adc25be1, type: 3}
   m_Name: Boarding Dash_Lvl1
   m_EditorClassIdentifier: 
+  requiredWave: 1
   buffName: Boarding Dash
   description: '+5% Boarding Dash
 

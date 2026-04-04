@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   requiredWave: 3
   buffName: Brine Barrier
-  description: +15% Brine Barrier
+  description: +20% Brine Barrier
   cardSprite: {fileID: 21300000, guid: 6a4df4020b1ab4a00bccdd505de57b51, type: 3}
   buffType: 4
   level: 3

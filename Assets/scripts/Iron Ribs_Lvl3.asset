@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   requiredWave: 3
   buffName: Iron Ribs
-  description: +15% Iron Ribs
+  description: +20% Iron Ribs
   cardSprite: {fileID: 21300000, guid: ea3a1c26cfb534400961c00785135464, type: 3}
   buffType: 5
   level: 3

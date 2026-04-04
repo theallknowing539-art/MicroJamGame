@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   requiredWave: 3
   buffName: Eternal Grog
-  description: +15% Eternal Grog
+  description: +20% Eternal Grog
   cardSprite: {fileID: 21300000, guid: 53d2326cb2ec74ed7a11da928e19d2d6, type: 3}
   buffType: 2
   level: 3

@@ -1,14 +1,19 @@
 using UnityEngine;
 using UnityEngine.Events;
 using System.Collections;
+using UnityEngine.EventSystems;
+
 
 public class Gun : MonoBehaviour
 {
     [Header("Firing")]
     public UnityEvent OnGunShoot;
-    public float FireCooldown;
+    public float FireCooldown = 0.2f;
     public bool Automatic;
-    
+    [SerializeField] private float baseGunDamage = 10f;
+    [SerializeField] private float range = 100f;
+    [SerializeField] private LayerMask enemyLayer;
+
     [Header("Ammo")]
     public int magazineSize = 6;
     public int reserveAmmo = 30;
@@ -23,6 +28,9 @@ public class Gun : MonoBehaviour
     [Header("Animator")]
     [SerializeField] private Animator gunAnimator;
 
+    // --- BUFF REFERENCE ---
+    private PlayerBuffs buffStats;
+
     private static readonly int AnimReload = Animator.StringToHash("Reload");
 
     public int CurrentAmmo  { get; private set; }
@@ -32,25 +40,38 @@ public class Gun : MonoBehaviour
     public event System.Action OnAmmoChanged;
 
     private float _currentCooldown;
+    private Camera _mainCam;
 
     private void Start()
+{
+    CurrentAmmo = magazineSize;
+    ReserveAmmo = reserveAmmo;
+    _mainCam = Camera.main;
+
+    // This finds the PlayerBuffs script anywhere on the Player object
+    buffStats = GetComponentInParent<PlayerBuffs>();
+    
+    if (buffStats == null)
     {
-        CurrentAmmo = magazineSize;
-        ReserveAmmo = reserveAmmo;
+        // If it's not in a parent, look for the object tagged "Player"
+        GameObject player = GameObject.FindGameObjectWithTag("Player");
+        if (player != null) buffStats = player.GetComponent<PlayerBuffs>();
     }
+
+    if (buffStats == null) Debug.LogError("Gun cannot find PlayerBuffs! Make sure your Player is tagged 'Player'.");
+}
 
     private void Update()
     {
+        if (EventSystem.current.IsPointerOverGameObject()) return;
         if (IsReloading) return;
+        
 
         // 1. Block if Hangover is active
         if (DrunkManager.Instance != null && DrunkManager.Instance.IsHangover) return;
 
-        // 2. NEW: Block if Player is Dead
-        if (PlayerHealth.Instance != null && PlayerHealth.Instance.CurrentHealth <= 0) 
-        {
-            return; 
-        }
+        // 2. Block if Player is Dead
+        if (PlayerHealth.Instance != null && PlayerHealth.Instance.CurrentHealth <= 0) return;
 
         HandleShooting();
         HandleReloadInput();
@@ -74,12 +95,6 @@ public class Gun : MonoBehaviour
         }
     }
 
-    public void AddReserveAmmo(int amount)
-    {
-        ReserveAmmo += amount;
-        OnAmmoChanged?.Invoke();
-    }
-
     private void TryShoot()
     {
         if (CurrentAmmo <= 0)
@@ -87,9 +102,12 @@ public class Gun : MonoBehaviour
             if (_audioSource != null && _emptySound != null)
                 _audioSource.PlayOneShot(_emptySound);
 
-            StartCoroutine(ReloadRoutine());
+            if (ReserveAmmo > 0) StartCoroutine(ReloadRoutine());
             return;
         }
+
+        // --- SHOOTING LOGIC (Raycast) ---
+        ExecuteRaycastHit();
 
         WeaponSway sway = GetComponentInParent<WeaponSway>();
         if (sway != null) sway.ApplyRecoil();
@@ -101,6 +119,35 @@ public class Gun : MonoBehaviour
         if (_audioSource != null && _shootSound != null)
             _audioSource.PlayOneShot(_shootSound);
 
+        OnAmmoChanged?.Invoke();
+    }
+
+   private void ExecuteRaycastHit()
+{
+    Ray ray = _mainCam.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0));
+    RaycastHit hit;
+
+    if (Physics.Raycast(ray, out hit, range))
+    {
+        Enemy enemy = hit.collider.GetComponent<Enemy>();
+        if (enemy != null)
+        {
+            // MATH CHECK
+            float baseDmg = baseGunDamage;
+            float buffDmg = (buffStats != null) ? buffStats.attackDamage : 0f;
+            float total = baseDmg + buffDmg;
+
+            // PRINT TO CONSOLE: Look at this while playing!
+            Debug.Log($"[GUN MATH] Base: {baseDmg} + Buff: {buffDmg} = TOTAL: {total}");
+
+            enemy.TakeDamage(total);
+        }
+    }
+}
+
+    public void AddReserveAmmo(int amount)
+    {
+        ReserveAmmo += amount;
         OnAmmoChanged?.Invoke();
     }
 

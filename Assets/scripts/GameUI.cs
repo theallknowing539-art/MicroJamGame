@@ -9,10 +9,9 @@ public class GameUI : MonoBehaviour
     [SerializeField] private TextMeshProUGUI subtitleText;
     [SerializeField] private float subtitleDisplayTime = 2f;
 
-    [Header("Health Bar")]
+    [Header("Bars")]
     [SerializeField] private Slider healthSlider;
-
-    [Header("Instability Bar")]
+    [SerializeField] private Slider shieldSlider; // Assigned in Inspector
     [SerializeField] private Slider instabilitySlider;
 
     [Header("Ammo")]
@@ -45,12 +44,13 @@ public class GameUI : MonoBehaviour
 
     private IEnumerator SetupUI()
     {
+        // Wait one frame to ensure Singletons and Player scripts are initialized
         yield return null;
 
         if (PlayerHealth.Instance != null)
         {
             PlayerHealth.Instance.OnHealthChanged += HandleHealthChanged;
-            // Subscribe to Shield if you add a shield bar later
+            PlayerHealth.Instance.OnShieldChanged += HandleShieldChanged;
         }
 
         DrunkManager.OnInstabilityChanged += HandleInstabilityChanged;
@@ -70,13 +70,17 @@ public class GameUI : MonoBehaviour
         if (_gun != null)
             _gun.OnAmmoChanged += HandleAmmoChanged;
 
+        // Final step: Force the UI to show the correct values immediately
         RefreshAll();
     }
 
     private void OnDestroy()
     {
         if (PlayerHealth.Instance != null)
+        {
             PlayerHealth.Instance.OnHealthChanged -= HandleHealthChanged;
+            PlayerHealth.Instance.OnShieldChanged -= HandleShieldChanged;
+        }
 
         DrunkManager.OnInstabilityChanged -= HandleInstabilityChanged;
         DrunkManager.OnInstabilityChanged -= HandleDrunkDialogue;
@@ -96,20 +100,29 @@ public class GameUI : MonoBehaviour
             _gun.OnAmmoChanged -= HandleAmmoChanged;
     }
 
-    // --- UPDATED HEALTH LOGIC ---
-    private void HandleHealthChanged(float current, float max)
-{
-    if (healthSlider != null)
-    {
-        // 1. Tell the slider what the NEW "100%" is (e.g. 105)
-        healthSlider.maxValue = max; 
-        
-        // 2. Tell the slider where the "fill" should be (e.g. 105)
-        healthSlider.value = current;
+    // --- HEALTH & SHIELD LOGIC ---
 
-        Debug.Log($"UI Updated: Slider is now {current}/{max}");
+    private void HandleHealthChanged(float current, float max)
+    {
+        if (healthSlider != null)
+        {
+            healthSlider.maxValue = max; 
+            healthSlider.value    = current;
+            Debug.Log($"[UI] Health: {current}/{max}");
+        }
     }
-}
+
+    private void HandleShieldChanged(float current, float max)
+    {
+        if (shieldSlider != null)
+        {
+            // Show the bar if we have a shield, hide it if it's 0
+            shieldSlider.gameObject.SetActive(current > 0);
+            shieldSlider.maxValue = max;
+            shieldSlider.value    = current;
+            Debug.Log($"[UI] Shield: {current}/{max}");
+        }
+    }
 
     private void HandleInstabilityChanged(float current, float max)
     {
@@ -119,6 +132,32 @@ public class GameUI : MonoBehaviour
             instabilitySlider.value    = current;
         }
     }
+
+    // --- REFRESH LOGIC ---
+
+    public void RefreshAll()
+    {
+        if (PlayerHealth.Instance != null)
+        {
+            // Force health slider to update
+            HandleHealthChanged(PlayerHealth.Instance.CurrentHealth, PlayerHealth.Instance.MaxHealth);
+            
+            // Look for shield data in PlayerBuffs to update shield slider
+            var buffs = PlayerHealth.Instance.GetComponent<PlayerBuffs>();
+            if (buffs != null)
+            {
+                HandleShieldChanged(buffs.shieldCapacity, buffs.maxShieldCapacity);
+            }
+        }
+
+        if (DrunkManager.Instance != null)
+            HandleInstabilityChanged(DrunkManager.Instance.CurrentInstability, DrunkManager.Instance.MaxInstability);
+
+        HandleInventoryChanged();
+        HandleAmmoChanged();
+    }
+
+    // --- AMMO & INVENTORY ---
 
     private void HandleAmmoChanged()
     {
@@ -137,6 +176,8 @@ public class GameUI : MonoBehaviour
         if (bottleIcon != null) bottleIcon.enabled = count > 0;
         if (bottleCountText != null) bottleCountText.enabled = count > 0;
     }
+
+    // --- WAVE LOGIC ---
 
     private void HandleWaveStarted(int wave, int total)
     {
@@ -161,19 +202,8 @@ public class GameUI : MonoBehaviour
             waveStatusText.text = $"Next wave in {Mathf.CeilToInt(seconds)}s";
     }
 
-    public void RefreshAll()
-    {
-        if (PlayerHealth.Instance != null)
-            HandleHealthChanged(PlayerHealth.Instance.CurrentHealth, PlayerHealth.Instance.MaxHealth);
-
-        if (DrunkManager.Instance != null)
-            HandleInstabilityChanged(DrunkManager.Instance.CurrentInstability, DrunkManager.Instance.MaxInstability);
-
-        HandleInventoryChanged();
-        HandleAmmoChanged();
-    }
-
     // --- DRUNK DIALOGUE LOGIC ---
+
     private void HandleDrunkDialogue(float current, float max)
     {
         float percentage = current / max; 

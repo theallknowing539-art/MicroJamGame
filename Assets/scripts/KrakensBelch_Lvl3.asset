@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   requiredWave: 3
   buffName: Kraken's Belch
-  description: +15% Knockback Force
+  description: +20% Knockback Force
   cardSprite: {fileID: 21300000, guid: 935540dbd5b5344b9b17052c34645cd2, type: 3}
   buffType: 0
   level: 3

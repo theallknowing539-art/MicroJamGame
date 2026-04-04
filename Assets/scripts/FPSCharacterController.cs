@@ -6,6 +6,8 @@ public class FPSCharacterController : MonoBehaviour
 {
     public static FPSCharacterController Instance { get; private set; }
 
+    private PlayerBuffs _buffs;
+
     [Header("Movement")]
     [SerializeField] private float walkSpeed = 5f;
     [SerializeField] private float sprintSpeed = 10f;
@@ -115,6 +117,7 @@ public class FPSCharacterController : MonoBehaviour
         Instance = this;
 
         _cc = GetComponent<CharacterController>();
+        _buffs = GetComponent<PlayerBuffs>();
 
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible   = false;
@@ -298,10 +301,17 @@ public class FPSCharacterController : MonoBehaviour
                 EndSlide();
         }
         else
-        {
-            float currentSpeed = _isSprinting ? sprintSpeed : walkSpeed;
-            horizontalMove = moveDir * currentSpeed;
-        }
+{
+    // We check if buffs exist, then use the moveSpeed from that script!
+    float buffedWalk = (_buffs != null) ? _buffs.moveSpeed : walkSpeed;
+    
+    // We scale sprint speed proportionally to the walk speed buff
+    float sprintMultiplier = sprintSpeed / walkSpeed; 
+    float buffedSprint = buffedWalk * sprintMultiplier;
+
+    float currentSpeed = _isSprinting ? buffedSprint : buffedWalk;
+    horizontalMove = moveDir * currentSpeed;
+}
 
         _isMoving = moveDir.magnitude > 0f && isGrounded && !_isSliding;
 
