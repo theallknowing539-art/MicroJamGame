@@ -16,6 +16,6 @@ MonoBehaviour:
   buffName: Scurvy Strike
   description: +5% Scurvy Strike
   cardSprite: {fileID: 21300000, guid: b31aec136e1ea41878e148a03cadf99c, type: 3}
-  buffType: 0
+  buffType: 1
   level: 1
-  value: 10
+  value: 5

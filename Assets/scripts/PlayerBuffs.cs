@@ -8,7 +8,7 @@ public class PlayerBuffs : MonoBehaviour
     public float maxHealth = 100f;
     public float currentHealth = 100f;
     public float attackDamage = 10f;
-    public float knockbackForce = 5f;
+    public float knockbackForce = 0f;
     
     [Header("Defense Stats")]
     public float shieldCapacity = 0f;    
