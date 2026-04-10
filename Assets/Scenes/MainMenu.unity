@@ -317,7 +317,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1794507492}
-  - component: {fileID: 1794507491}
   m_Layer: 0
   m_Name: MainMenuBuilder
   m_TagString: Untagged
@@ -325,31 +324,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &1794507491
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1794507490}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 41fd0d17c1e22449c975588ac64a84e4, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  mainMenuPanel: {fileID: 0}
-  settingsPanel: {fileID: 0}
-  subtitleText: {fileID: 0}
-  titleText: {fileID: 0}
-  editionText: {fileID: 0}
-  flavorText: {fileID: 0}
-  controlsContainer: {fileID: 0}
-  warningBox: {fileID: 0}
-  warningText: {fileID: 0}
-  setSailButton: {fileID: 0}
-  adjustSailsButton: {fileID: 0}
-  footerText: {fileID: 0}
-  gameSceneName: Game
 --- !u!4 &1794507492
 Transform:
   m_ObjectHideFlags: 0

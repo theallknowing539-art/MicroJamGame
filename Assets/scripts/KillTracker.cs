@@ -3,7 +3,7 @@
 // Attach to: empty GameObject in scene
 // ================================================================
 using UnityEngine;
-using System.Collections.Generic;
+using System;
 
 public class KillTracker : MonoBehaviour
 {
@@ -11,13 +11,12 @@ public class KillTracker : MonoBehaviour
 
     [Header("Thresholds")]
     [SerializeField] private int[] levelThresholds = { 10, 50, 120, 250 };
-    [SerializeField] private int[] levels = {1,2,3};
 
     public int TotalKills    { get; private set; } = 0;
     public int CurrentLevel  { get; private set; } = 0;
 
-    // public event Action<int> OnKillCountChanged;    // (totalKills)
-    // public event Action<int> OnLevelThresholdReached; // (level 1-4)
+    public event Action<int> OnKillCountChanged;    // (totalKills)
+    public event Action<int> OnLevelThresholdReached; // (level 1-4)
 
     // ----------------------------------------------------------------
     private void Awake()
@@ -32,6 +31,7 @@ public class KillTracker : MonoBehaviour
     public void RegisterKill()
     {
         TotalKills++;
+        OnKillCountChanged?.Invoke(TotalKills);
 
         CheckThreshold();
     }
@@ -45,7 +45,7 @@ public class KillTracker : MonoBehaviour
         {
             CurrentLevel++;
             Debug.Log($"[KillTracker] Level {CurrentLevel} threshold reached!");
-            // OnLevelThresholdReached?.Invoke(CurrentLevel);
+            OnLevelThresholdReached?.Invoke(CurrentLevel);
         }
     }
 }
